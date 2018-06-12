@@ -45,7 +45,7 @@ static void advect_omg( const int );
 __global__ static void eulerb_omg( cucmplx*, const cureal );
 __global__ static void bdf2_omg( cucmplx*, const cureal );
 static void dissipate_omg( const int );
-static renew_fields( void );
+static void renew_fields( void );
 static cureal maxval( cureal* );
 static void check_cfl( cureal& );
 void time_advance( int&, cureal& );
