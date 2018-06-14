@@ -1,0 +1,47 @@
+TARGET         = main
+FILES          = *.cu *.h Makefile
+VER            = `date +%y%m%d`
+
+CUDAARCH       = compute_61
+CUDACODE       = sm_61
+
+NVCC           = nvcc
+NVCCFLAGS      = -gencode arch=$(CUDAARCH),code=$(CUDACODE)
+NVCCLIBS       = -lcufft -lcudadevrt -lcurand
+IGNOREWARNING  = -Xcompiler "/wd 4819 /O2"
+
+ifeq ($(dble),on)
+  NVCCFLAGS += -DDBLE
+endif
+
+.SUFFIXES:
+.SUFFIXES: .cu .obj
+
+.cu.obj:
+	$(NVCC) -dc $(NVCCFLAGS) $(IGNOREWARNING) $<
+
+# main program
+$(TARGET): main.obj output.obj tint.obj shear.obj fields.obj four.obj fft.obj
+	$(NVCC) $^ -o $@ $(NVCCFLAGS) $(NVCCLIBS)
+
+main.obj: shear.obj shear.h tint.obj tint.h
+output.obj: shear.obj shear.h tint.obj tint.h
+tint.obj: four.obj four.h shear.obj shear.h
+shear.obj: fields.obj fields.h
+fields.obj: four.obj four.h
+four.obj: fft.obj fft.h
+fft.obj: cmplx.h
+
+clean:
+	rm -rf *.obj *.exp *.lib *~ \#*
+
+distclean: clean
+	rm -rf $(TARGET)
+
+tar:
+	@echo $(TARGET)-$(VER) > .package
+	@-rm -fr `cat .package`
+	@mkdir `cat .package`
+	@ln $(FILES) `cat .package`
+	tar cvf - `cat .package` | bzip2 -9 > `cat .package`.tar.bz2
+	@-rm -fr `cat .package` .package
