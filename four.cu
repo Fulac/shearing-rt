@@ -14,7 +14,7 @@ namespace{
     cucmplx *dv_ctmp;
 }
 
-/* ---------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------------------- */
 
 void init_four( void );
 void finish_four( void );
@@ -30,7 +30,7 @@ void poisson_bracket( const cureal*, const cureal*, const cucmplx*, cureal* );
 __global__ void mult_real_field( const cureal*, cureal* );
 __global__ void add_real_field( const cureal*, cureal* );
 
-/* ---------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------------------- */
 
 void init_four
     ( void 
@@ -186,19 +186,19 @@ void poisson_bracket
 }
 
 __global__ void mult_real_field
-    ( const cureal *a
-    ,       cureal *b 
+    ( const cureal *fa
+    ,       cureal *fb 
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if( tid < ct_nx*ct_ny ) b[tid] = a[tid] * b[tid];
+    if( tid < ct_nx*ct_ny ) fb[tid] = fa[tid] * fb[tid];
 }
 
 __global__ void add_real_field
-    ( const cureal *a
-    ,       cureal *b 
+    ( const cureal *fa
+    ,       cureal *fb 
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if( tid < ct_nx*ct_ny ) b[tid] = a[tid] + b[tid];
+    if( tid < ct_nx*ct_ny ) fb[tid] = fa[tid] + fb[tid];
 }

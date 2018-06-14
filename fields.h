@@ -16,7 +16,12 @@ extern cucmplx *dv_arho0, *dv_arho1, *dv_arho2;
 extern cucmplx *dv_drho0, *dv_drho1, *dv_drho2;
 extern cucmplx *dv_aphi;
 
-extern void init_fields( void );
-extern void finish_fields( void );
+void init_fields
+    ( void
+);
+
+void finish_fields
+    ( void
+);
 
 #endif

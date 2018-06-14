@@ -8,8 +8,8 @@
 #include "tint.h"
 #include "shear.h"
 
-bool write_fields;
-int nwrite;
+bool   write_fields;
+int    nwrite;
 cureal otime, next_otime;
 
 namespace{
@@ -20,7 +20,7 @@ namespace{
     cureal  *ensp_ao, *ensp_ap, *ensp_ar;
 }
 
-/* ---------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------------------- */
 
 void init_output( void );
 void finish_output( void );
@@ -28,7 +28,7 @@ void file_out( int, cureal );
 static cureal phi_max( cureal* );
 void en_spectral( int, cureal );
 
-/* ---------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------------------- */
 
 void init_output
     ( void 

@@ -195,7 +195,7 @@ void ktox_shear
     ktox_1d( dv_ctmp3, out );
 }
 
-__global__ void idft_shear_y
+__global__ static void idft_shear_y
     ( const cucmplx *in
     ,       cucmplx *out
 ){
@@ -230,7 +230,7 @@ __global__ void idft_shear_y
     }
 }
 
-__global__ void pad2d
+__global__ static void pad2d
     ( const cucmplx *in
     ,       cucmplx *out
 ){

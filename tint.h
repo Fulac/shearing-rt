@@ -4,9 +4,21 @@
 extern int nrst, nst;
 extern bool noise;
 
-extern void init_tint( void );
-extern void finish_tint( void );
-extern void initialize( void );
-extern void time_advance( int&, cureal& );
+void init_tint
+    ( void
+);
+
+void finish_tint
+    ( void
+);
+
+void initialize
+    ( void
+);
+
+void time_advance
+    ( int    &istep
+    , cureal &time
+);
 
 #endif

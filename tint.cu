@@ -18,39 +18,48 @@ namespace{
     cucmplx *dv_ctmp;
 }
 
-/* ---------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------------------- */
 
 void init_tint( void );
 void finish_tint( void );
-__global__ static void disturb( cucmplx*, cureal* );
-void init_dis( void );
+
 void initialize( void );
+
+static void init_dis( void );
+__global__ static void disturb( cucmplx*, cureal* );
+
+void time_advance( int&, cureal& );
+
+static void check_cfl( cureal& );
+static cureal maxval( cureal* );
+
+static void renew_fields( void );
+
+static void advect_rho( const int );
+__global__ static void add_phi( cucmplx*, const cucmplx* );
 __global__ static void eulerf_rho( cucmplx*, const cucmplx*, const cucmplx*, const cureal );
 __global__ static void ab2_rho( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
 __global__ static void ab2_rho( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
 __global__ static void ab3_rho( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
 __global__ static void ab3_rho( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, cureal );
-__global__ static void add_phi( cucmplx*, const cucmplx* );
-static void advect_rho( const int );
+
+static void dissipate_rho( const int);
 __global__ static void eulerb_rho( cucmplx*, const cureal );
 __global__ static void bdf2_rho( cucmplx*, const cureal );
-static void dissipate_rho( const int);
+
+static void advect_omg( const int );
+__global__ static void add_rho( cucmplx*, const cucmplx* );
 __global__ static void eulerf_omg( cucmplx*, const cucmplx*, const cucmplx*, const cureal );
 __global__ static void ab2_omg( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
 __global__ static void ab2_omg( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
 __global__ static void ab3_omg( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
 __global__ static void ab3_omg( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
-__global__ static void add_rho( cucmplx*, const cucmplx* );
-static void advect_omg( const int );
+
+static void dissipate_omg( const int );
 __global__ static void eulerb_omg( cucmplx*, const cureal );
 __global__ static void bdf2_omg( cucmplx*, const cureal );
-static void dissipate_omg( const int );
-static void renew_fields( void );
-static cureal maxval( cureal* );
-static void check_cfl( cureal& );
-void time_advance( int&, cureal& );
 
-/* ---------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------------------- */
 
 void init_tint
     ( void
@@ -66,48 +75,6 @@ void finish_tint
     cudaFree( dv_rtmp );
     cudaFree( dv_ctmp );
     delete[] ff;
-}
-
-__global__ static void disturb
-    ( cucmplx *dv_rho
-    , cureal  *dv_dis
-){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if( tid < ct_nkx*ct_nky ){
-        dv_rho[tid].x = dv_rho[tid].x + dv_dis[tid];
-        dv_rho[tid].y = dv_rho[tid].y + dv_dis[tid];
-    }
-}
-
-void init_dis
-    ( void
-){
-    cureal *fk;
-    cureal *dv_dis;
-    dim3 block( nthread );
-    dim3 cgrid( (nkx*nky)+nthread-1/nthread );
-
-    fk = new cureal [nkx*nky];
-    cudaMalloc( (void**)&dv_dis, sizeof(cureal) * nkx *nky );
-
-    srand( 10000 );
-    for( int ikx = 0; ikx < nkx; ikx++ ){
-        for( int iky = 0; iky < nky; iky++ ){
-            if( abs(kx[ikx]) <= 40 && abs(ky[iky]) <= 80 ){
-                fk[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0) / sqrt(nx*ny);
-            }
-            else{
-                fk[ikx*nky+iky] = 0;
-            }
-        }
-    }
-
-    cudaMemcpy( dv_dis, fk, sizeof(cureal) * nkx *nky, cudaMemcpyHostToDevice );
-    disturb <<< cgrid, block >>> ( dv_arho0, dv_dis );
-
-    delete[] fk;
-    cudaFree( dv_dis );
 }
 
 void initialize
@@ -129,7 +96,6 @@ void initialize
         for( iy = 0; iy < ny; iy++ ){
             omgz[ix*ny+iy] = 0;
             rho[ix*ny+iy] = rho_eps1*cos(2*xx[ix] + 10*yy[iy]);
-            /* rho[ix*ny+iy] = sin(yy[iy]); */
         }
     }
     cudaMemcpy( dv_omgz, omgz, sizeof(cureal)*nx*ny, cudaMemcpyHostToDevice );
@@ -143,92 +109,117 @@ void initialize
     get_vector( dv_aphi, dv_vx, dv_vy );
 }
 
-__global__ static void eulerf_rho
-    (       cucmplx *fa0
-    , const cucmplx *fa1
-    , const cucmplx *dadt0
-    , const cureal   delt
+static void init_dis
+    ( void
 ){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    cureal *fk;
+    cureal *dv_dis;
+    dim3 block( nthread );
+    dim3 cgrid( (nkx*nky)+nthread-1/nthread );
 
-    if( tid < ct_nkx*ct_nky ) 
-        fa0[tid] = fa1[tid]
-                 + delt * dadt0[tid];
+    fk = new cureal [nkx*nky];
+    cudaMalloc( (void**)&dv_dis, sizeof(cureal) * nkx *nky );
+
+    srand( 10000 );
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            if( abs(kx[ikx]) <= 40 && abs(ky[iky]) <= 80 ){
+                fk[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)
+                                / sqrt(nx*ny);
+            }
+            else{
+                fk[ikx*nky+iky] = 0;
+            }
+        }
+    }
+
+    cudaMemcpy( dv_dis, fk, sizeof(cureal) * nkx *nky, cudaMemcpyHostToDevice );
+    disturb <<< cgrid, block >>> ( dv_arho0, dv_dis );
+
+    delete[] fk;
+    cudaFree( dv_dis );
 }
 
-__global__ static void ab2_rho
-    (       cucmplx *fa0
-    , const cucmplx *fa1
-    , const cucmplx *dadt0
-    , const cucmplx *dadt1
-    , const cureal   delt
+__global__ static void disturb
+    ( cucmplx *dv_rho
+    , cureal  *dv_dis
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if( tid < ct_nkx*ct_nky ){
-        fa0[tid] = fa1[tid]
-                 + delt * (1.5*dadt0[tid] - 0.5*dadt1[tid]);
+        dv_rho[tid].x = dv_rho[tid].x + dv_dis[tid];
+        dv_rho[tid].y = dv_rho[tid].y + dv_dis[tid];
     }
 }
 
-__global__ static void ab2_rho
-    (       cucmplx *fa0
-    , const cucmplx *fa1
-    , const cucmplx *fa2
-    , const cucmplx *dadt0
-    , const cucmplx *dadt1
-    , const cureal   delt
+void time_advance
+    ( int    &istep
+    , cureal &time
 ){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    check_cfl( delt );
+    renew_fields();
 
-    if( tid < ct_nkx*ct_nky ){
-        fa0[tid] = (4.0*fa1[tid] - fa2[tid]) / 3.0 
-                 + (2.0/3.0)*delt * (2.0*dadt0[tid] - dadt1[tid]); 
+    advect_rho( istep );
+    dissipate_rho( istep );
+
+    advect_omg( istep );
+    dissipate_omg( istep );
+
+    update_shear( delt );
+
+    istep++;
+    time += delt;
+}
+
+static void check_cfl
+    ( cureal &delt
+){
+    dim3 block( nthread );
+    dim3 cgrid( ((nkx*nky-1)+nthread-1)/nthread );
+
+    neg_lapinv_shear <<< cgrid, block >>> ( dv_aomg0, dv_aphi );
+    get_vector_shear( dv_aphi, dv_vx, dv_vy );
+
+    cudaMemcpy( ff, dv_vx, sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
+    cfl_vx = maxval( ff );
+    while( (cfl_vx*delt/dx) > 0.1 ){
+        delt /= 2.0;
+        printf(": delt = %g\n", delt);
+    }
+
+    cudaMemcpy( ff, dv_vy, sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
+    cfl_vy = maxval( ff );
+    while( (cfl_vy*delt/dy) > 0.1 ){
+        delt /= 2.0;
+        printf(": delt = %g\n", delt);
     }
 }
 
-__global__ static void ab3_rho
-    (       cucmplx *fa0
-    , const cucmplx *fa1
-    , const cucmplx *dadt0
-    , const cucmplx *dadt1
-    , const cucmplx *dadt2
-    , const cureal   delt
+static cureal maxval
+    ( cureal *ff
 ){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    cureal maxvalue;
 
-    if( tid < ct_nkx*ct_nky ){
-        fa0[tid] = fa1[tid] 
-                 + (delt/12.0) * (23.0*dadt0[tid]-16.0*dadt1[tid]+5.0*dadt2[tid]);
+    maxvalue = 0;
+    for( int ix = 0; ix <= nx; ix++ ){
+        for( int iy = 0; iy <= ny; iy++ )
+            if( maxvalue < fabs(ff[ix*(ny+1)+iy]) )
+                maxvalue = fabs(ff[ix*(ny+1)+iy]);
     }
+
+    return maxvalue;
 }
 
-__global__ static void ab3_rho
-    (       cucmplx *fa0
-    , const cucmplx *fa1
-    , const cucmplx *fa2
-    , const cucmplx *dadt0
-    , const cucmplx *dadt1
-    , const cucmplx *dadt2
-    , const cureal   delt 
+static void renew_fields
+    ( void
 ){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    cucmplx *tmp;
 
-    if( tid < ct_nkx*ct_nky ){
-        fa0[tid] = (4.0*fa1[tid] - fa2[tid]) / 3.0 
-                 + (delt/9.0) * (16.0*dadt0[tid]-14.0*dadt1[tid]+4.0*dadt2[tid]);
-    }
-}
+    tmp = dv_aomg2; dv_aomg2 = dv_aomg1; dv_aomg1 = dv_aomg0; dv_aomg0 = tmp;
+    tmp = dv_domg2; dv_domg2 = dv_domg1; dv_domg1 = dv_domg0; dv_domg0 = tmp;
 
-__global__ static void add_phi
-    (       cucmplx *dadt0
-    , const cucmplx *aphi
-){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    int xid = tid / ct_nky;
-
-    if( tid < ct_nkx*ct_nky )
-        dadt0[tid] = dadt0[tid] + ct_rho0_prime * CIMAG * gb_kx[xid] * aphi[tid];
+    tmp = dv_arho2; dv_arho2 = dv_arho1; dv_arho1 = dv_arho0; dv_arho0 = tmp;
+    tmp = dv_drho2; dv_drho2 = dv_drho1; dv_drho1 = dv_drho0; dv_drho0 = tmp;
 }
 
 static void advect_rho
@@ -300,24 +291,91 @@ static void advect_rho
     }
 }
 
-__global__ static void eulerb_rho
-    (       cucmplx *fa0
-    , const cureal   delt
+__global__ static void add_phi
+    (       cucmplx *dadt0
+    , const cucmplx *aphi
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int xid = tid / ct_nky;
 
     if( tid < ct_nkx*ct_nky )
-        fa0[tid] = fa0[tid] / ( 1.0 + delt * ct_kappa * gb_kperp2_shear[tid] );
+        dadt0[tid] = dadt0[tid] + ct_rho0_prime * CIMAG * gb_kx[xid] * aphi[tid];
 }
 
-__global__ static void bdf2_rho
+__global__ static void eulerf_rho
     (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
     , const cureal   delt
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if( tid < ct_nkx*ct_nky )
-        fa0[tid] = fa0[tid] / ( 1.0 + (2.0/3.0) * delt * ct_kappa * gb_kperp2_shear[tid] );
+    if( tid < ct_nkx*ct_nky ) 
+        fa0[tid] = fa1[tid] + delt * dadt0[tid];
+}
+
+__global__ static void ab2_rho
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cureal   delt
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( tid < ct_nkx*ct_nky ){
+        fa0[tid] = fa1[tid]
+                 + delt * (1.5*dadt0[tid] - 0.5*dadt1[tid]);
+    }
+}
+
+__global__ static void ab2_rho
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *fa2
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cureal   delt
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( tid < ct_nkx*ct_nky ){
+        fa0[tid] = (4.0*fa1[tid] - fa2[tid]) / 3.0 
+                 + (2.0/3.0)*delt * (2.0*dadt0[tid] - dadt1[tid]); 
+    }
+}
+
+__global__ static void ab3_rho
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cucmplx *dadt2
+    , const cureal   delt
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( tid < ct_nkx*ct_nky ){
+        fa0[tid] = fa1[tid] 
+                 + (delt/12.0) * (23.0*dadt0[tid]-16.0*dadt1[tid]+5.0*dadt2[tid]);
+    }
+}
+
+__global__ static void ab3_rho
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *fa2
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cucmplx *dadt2
+    , const cureal   delt 
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( tid < ct_nkx*ct_nky ){
+        fa0[tid] = (4.0*fa1[tid] - fa2[tid]) / 3.0 
+                 + (delt/9.0) * (16.0*dadt0[tid]-14.0*dadt1[tid]+4.0*dadt2[tid]);
+    }
 }
 
 static void dissipate_rho
@@ -351,92 +409,24 @@ static void dissipate_rho
     }
 }
 
-__global__ static void eulerf_omg
+__global__ static void eulerb_rho
     (       cucmplx *fa0
-    , const cucmplx *fa1
-    , const cucmplx *dadt0
     , const cureal   delt
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if( tid < ct_nkx*ct_nky ) 
-        fa0[tid] = fa1[tid] 
-                 + delt * dadt0[tid];
-}
-
-__global__ static void ab2_omg
-    (       cucmplx *fa0
-    , const cucmplx *fa1
-    , const cucmplx *dadt0
-    , const cucmplx *dadt1
-    , const cureal   delt
-){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if( tid < ct_nkx*ct_nky ){
-        fa0[tid] = fa1[tid] 
-                 + delt * (1.5*dadt0[tid]-0.5*dadt1[tid]);
-    }
-}
-
-__global__ static void ab2_omg
-    (       cucmplx *fa0
-    , const cucmplx *fa1
-    , const cucmplx *fa2
-    , const cucmplx *dadt0
-    , const cucmplx *dadt1
-    , const cureal   delt
-){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if( tid < ct_nkx*ct_nky ){
-        fa0[tid] = (4.0*fa1[tid] - fa2[tid]) / 3.0 
-                 + (2.0/3.0)*delt * (2.0*dadt0[tid]-dadt1[tid]);
-    }
-}
-
-__global__ static void ab3_omg
-    (       cucmplx *fa0
-    , const cucmplx *fa1
-    , const cucmplx *dadt0
-    , const cucmplx *dadt1
-    , const cucmplx *dadt2
-    , const cureal   delt
-){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if( tid < ct_nkx*ct_nky ){
-        fa0[tid] = fa1[tid] 
-                 + (delt/12.0) * (23.0*dadt0[tid]-16.0*dadt1[tid]+5.0*dadt2[tid]);
-    }
-}
-
-__global__ static void ab3_omg
-    (       cucmplx *fa0
-    , const cucmplx *fa1
-    , const cucmplx *fa2
-    , const cucmplx *dadt0
-    , const cucmplx *dadt1
-    , const cucmplx *dadt2
-    , const cureal   delt
-){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if( tid < ct_nkx*ct_nky ){
-        fa0[tid] = (4.0*fa1[tid] - fa2[tid]) / 3.0 
-                 + (delt/9.0) * (16.0*dadt0[tid]-14.0*dadt1[tid]+4.0*dadt2[tid]);
-    }
-}
-
-__global__ static void add_rho
-    (       cucmplx *dadt0
-    , const cucmplx *arho1
-){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    int xid = tid / ct_nky;
 
     if( tid < ct_nkx*ct_nky )
-        dadt0[tid] = dadt0[tid] - ct_g / ct_rho0 * CIMAG * gb_kx[xid] * arho1[tid];
+        fa0[tid] = fa0[tid] / ( 1.0 + delt * ct_kappa * gb_kperp2_shear[tid] );
+}
+
+__global__ static void bdf2_rho
+    (       cucmplx *fa0
+    , const cureal   delt
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( tid < ct_nkx*ct_nky )
+        fa0[tid] = fa0[tid] / ( 1.0 + (2.0/3.0) * delt * ct_kappa * gb_kperp2_shear[tid] );
 }
 
 static void advect_omg
@@ -509,24 +499,91 @@ static void advect_omg
     }
 }
 
-__global__ static void eulerb_omg
-    (       cucmplx *fa0
-    , const cureal   delt
+__global__ static void add_rho
+    (       cucmplx *dadt0
+    , const cucmplx *arho1
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int xid = tid / ct_nky;
 
     if( tid < ct_nkx*ct_nky )
-        fa0[tid] = fa0[tid] / ( 1.0 + delt * ct_nu * gb_kperp2_shear[tid] );
+        dadt0[tid] = dadt0[tid] - ct_g / ct_rho0 * CIMAG * gb_kx[xid] * arho1[tid];
 }
 
-__global__ static void bdf2_omg
+__global__ static void eulerf_omg
     (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
     , const cureal   delt
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if( tid < ct_nkx*ct_nky )
-        fa0[tid] = fa0[tid] / ( 1.0 + (2.0/3.0)*delt * ct_nu * gb_kperp2_shear[tid] );
+    if( tid < ct_nkx*ct_nky ) 
+        fa0[tid] = fa1[tid] + delt * dadt0[tid];
+}
+
+__global__ static void ab2_omg
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cureal   delt
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( tid < ct_nkx*ct_nky ){
+        fa0[tid] = fa1[tid] 
+                 + delt * (1.5*dadt0[tid]-0.5*dadt1[tid]);
+    }
+}
+
+__global__ static void ab2_omg
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *fa2
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cureal   delt
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( tid < ct_nkx*ct_nky ){
+        fa0[tid] = (4.0*fa1[tid] - fa2[tid]) / 3.0 
+                 + (2.0/3.0)*delt * (2.0*dadt0[tid]-dadt1[tid]);
+    }
+}
+
+__global__ static void ab3_omg
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cucmplx *dadt2
+    , const cureal   delt
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( tid < ct_nkx*ct_nky ){
+        fa0[tid] = fa1[tid] 
+                 + (delt/12.0) * (23.0*dadt0[tid]-16.0*dadt1[tid]+5.0*dadt2[tid]);
+    }
+}
+
+__global__ static void ab3_omg
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *fa2
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cucmplx *dadt2
+    , const cureal   delt
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( tid < ct_nkx*ct_nky ){
+        fa0[tid] = (4.0*fa1[tid] - fa2[tid]) / 3.0 
+                 + (delt/9.0) * (16.0*dadt0[tid]-14.0*dadt1[tid]+4.0*dadt2[tid]);
+    }
 }
 
 static void dissipate_omg
@@ -560,72 +617,22 @@ static void dissipate_omg
     }
 }
 
-static void renew_fields
-    ( void
+__global__ static void eulerb_omg
+    (       cucmplx *fa0
+    , const cureal   delt
 ){
-    cucmplx *tmp;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    tmp = dv_aomg2; dv_aomg2 = dv_aomg1; dv_aomg1 = dv_aomg0; dv_aomg0 = tmp;
-    tmp = dv_domg2; dv_domg2 = dv_domg1; dv_domg1 = dv_domg0; dv_domg0 = tmp;
-
-    tmp = dv_arho2; dv_arho2 = dv_arho1; dv_arho1 = dv_arho0; dv_arho0 = tmp;
-    tmp = dv_drho2; dv_drho2 = dv_drho1; dv_drho1 = dv_drho0; dv_drho0 = tmp;
+    if( tid < ct_nkx*ct_nky )
+        fa0[tid] = fa0[tid] / ( 1.0 + delt * ct_nu * gb_kperp2_shear[tid] );
 }
 
-static cureal maxval
-    ( cureal *ff
+__global__ static void bdf2_omg
+    (       cucmplx *fa0
+    , const cureal   delt
 ){
-    cureal maxvalue;
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-    maxvalue = 0;
-    for( int ix = 0; ix < nx; ix++ ){
-        for( int iy = 0; iy < ny; iy++ )
-            if( maxvalue < fabs(ff[ix*ny+iy]) )
-                maxvalue = fabs(ff[ix*ny+iy]);
-    }
-
-    return maxvalue;
-}
-
-static void check_cfl
-    ( cureal &delt
-){
-    dim3 block( nthread );
-    dim3 cgrid( ((nkx*nky-1)+nthread-1)/nthread );
-
-    neg_lapinv_shear <<< cgrid, block >>> ( dv_aomg0, dv_aphi );
-    get_vector_shear( dv_aphi, dv_vx, dv_vy );
-
-    cudaMemcpy( ff, dv_vx, sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
-    cfl_vx = maxval( ff );
-    while( (cfl_vx*delt/dx) > 0.1 ){
-        delt /= 2.0;
-        printf(": delt = %g\n", delt);
-    }
-
-    cudaMemcpy( ff, dv_vy, sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
-    cfl_vy = maxval( ff );
-    while( (cfl_vy*delt/dy) > 0.1 ){
-        delt /= 2.0;
-        printf(": delt = %g\n", delt);
-    }
-}
-
-void time_advance
-    ( int    &istep
-    , cureal &time
-){
-    check_cfl( delt );
-    renew_fields();
-
-    advect_rho( istep );
-    dissipate_rho( istep );
-
-    advect_omg( istep );
-    dissipate_omg( istep );
-
-    update_shear( delt );
-
-    istep++;
-    time += delt;
+    if( tid < ct_nkx*ct_nky )
+        fa0[tid] = fa0[tid] / ( 1.0 + (2.0/3.0)*delt * ct_nu * gb_kperp2_shear[tid] );
 }
