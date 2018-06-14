@@ -95,7 +95,7 @@ void init_dis
     for( int ikx = 0; ikx < nkx; ikx++ ){
         for( int iky = 0; iky < nky; iky++ ){
             if( abs(kx[ikx]) <= 40 && abs(ky[iky]) <= 80 ){
-                fk[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0) / (nx*ny);
+                fk[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0) / sqrt(nx*ny);
             }
             else{
                 fk[ikx*nky+iky] = 0;
