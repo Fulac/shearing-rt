@@ -1,4 +1,4 @@
-ifeq ( $(OS), Windows_NT )
+ifeq (${OS},Windows_NT)
 	include Makefile.win
 else
 	include Makefile.linux
