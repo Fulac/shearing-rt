@@ -23,12 +23,12 @@ endif
 	$(NVCC) -dc $(NVCCFLAGS) $(IGNOREWARNING) $<
 
 # main program
-$(TARGET): main.obj output.obj tint.obj shear.obj fields.obj fourier.obj fft.obj
+$(TARGET): main.obj file_access.obj time_integral.obj shear.obj fields.obj fourier.obj fft.obj
 	$(NVCC) $^ -o $@ $(NVCCFLAGS) $(NVCCLIBS)
 
-main.obj: shear.obj shear.h tint.obj tint.h
-output.obj: shear.obj shear.h tint.obj tint.h
-tint.obj: fourier.obj fourier.h shear.obj shear.h
+main.obj: shear.obj shear.h time_integral.obj time_integral.h
+file_access.obj: shear.obj shear.h time_integral.obj time_integral.h
+time_integral.obj: fourier.obj fourier.h shear.obj shear.h
 shear.obj: fields.obj fields.h
 fields.obj: fourier.obj fourier.h
 fourier.obj: fft.obj fft.h

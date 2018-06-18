@@ -1,13 +1,3 @@
-// C headers
-#include <cmath>
-
-// C++ headers
-#include <string>
-
-// Boost headers
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/ini_parser.hpp>
-
 // Local headers
 #include "cmplx.h"
 #include "fft.h"
@@ -16,13 +6,6 @@
 #include "time_integral.h"
 #include "shear.h"
 #include "file_access.h"
-
-template <class T>
-T readEntry
-   ( boost::property_tree::ptree pt
-   , std::string section
-   , std::string name
-   , T defaultValue );
 
 int main
     ( void
@@ -65,25 +48,4 @@ int main
     finish_four();
 
     return 0;
-}
-
-template <class T>
-T readEntry
-   ( boost::property_tree::ptree pt
-   , std::string section
-   , std::string name
-   , T           defaultValue
-){
-   T value;
-
-   try {
-      // get value
-      value = pt.get<T>( section+"."+name );
-   } catch( boost::property_tree::ptree_error &err ) {
-      // show warning if key is missing
-      printf( "WARNING: readEntry: Key \"%s\" in section [%s] not found. Using default.\n", name.c_str(), section.c_str() );
-      value = defaultValue;
-   }
-
-   return value;
 }

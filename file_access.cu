@@ -101,7 +101,7 @@ void input_data
     write_fields = readEntry<bool>( pt, "output", "write output", true );
 
     // problem parameters
-    noise = readEntry<bool>( pt, "problem", "initial noise", true );
+    noise_flag = readEntry<bool>( pt, "problem", "initial noise", true );
     nu = readEntry<cureal>( pt, "problem", "nu", 1e-3 );
     kappa = readEntry<cureal>( pt, "problem", "kappa", 1e-5 );
     sigma = readEntry<cureal>( pt, "problem", "sigma", 1.0 );

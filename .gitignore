@@ -1,6 +1,8 @@
 /main
 /main.exe
+/Makefile.local
 /data_files/*
+/*.dat
 /*.o
 /*.obj
 /*.lib
