@@ -6,7 +6,7 @@ CUDAARCH       = compute_61
 CUDACODE       = sm_61
 
 NVCC           = nvcc
-NVCCFLAGS      = -gencode arch=$(CUDAARCH),code=$(CUDACODE)
+NVCCFLAGS      = -gencode arch=$(CUDAARCH),code=$(CUDACODE) -D_USE_MATH_DEFINES
 NVCCLIBS       = -lcufft -lcudadevrt -lcurand
 IGNOREWARNING  = -Xcompiler "/wd 4819 /O2"
 

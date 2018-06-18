@@ -1,5 +1,3 @@
-#define _USE_MATH_DEFINES
-
 // C headers
 #include <cmath>
 

@@ -1,5 +1,4 @@
 #include <cstdio>
-#define _USE_MATH_DEFINES
 #include <cmath>
 #include "cmplx.h"
 #include "fft.h"
