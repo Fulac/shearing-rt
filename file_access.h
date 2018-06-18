@@ -13,7 +13,11 @@ void finish_output
     ( void
 );
 
-void file_out
+void input_data
+    ( void
+);
+
+void output_fields
     ( int    istep
     , cureal time
 );

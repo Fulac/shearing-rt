@@ -1,63 +1,232 @@
+// C headers
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+
+// CUDA headers
 #include <cuda.h>
 #include <curand_kernel.h>
+
+// Local headers
 #include "cmplx.h"
 #include "fft.h"
 #include "fields.h"
-#include "four.h"
+#include "fourier.h"
 #include "shear.h"
 
-int nrst, nst;
-bool noise;
+/* ---------------------------------------------------------------------------------------------- */
+/*  Global Variables Definition                                                                   */
+/* ---------------------------------------------------------------------------------------------- */
 
+// プログラム全体で使用する変数を定義
+int nrst; // 1 : foward euler, 2 : ab2, 3 : ab3
+int nst;  // 2 : backward euler, 3 : bdf2
+bool noise_flag; // 初期値に擾乱を入れる (true) or 入れない (false)
+
+// このファイル内でのみ使用するグローバル変数を定義
 namespace{
     cureal  *dv_rtmp, *ff;
     cucmplx *dv_ctmp;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+/* ---------------------------------------------------------------------------------------------- */
+/*  Function Prototype                                                                            */
 /* ---------------------------------------------------------------------------------------------- */
 
-void init_tint( void );
-void finish_tint( void );
+void init_tint
+    ( void
+);
 
-void initialize( void );
+void finish_tint
+    ( void
+);
 
-static void init_dis( void );
-__global__ static void disturb( cucmplx*, cureal* );
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void time_advance( int&, cureal& );
+void initialize
+    ( void
+);
 
-static void check_cfl( cureal& );
-static cureal maxval( cureal* );
+static void init_dis
+    ( void
+);
 
-static void renew_fields( void );
+__global__ static void disturb
+    ( cucmplx *dv_rho
+    , cureal  *dv_dis
+);
 
-static void advect_rho( const int );
-__global__ static void add_phi( cucmplx*, const cucmplx* );
-__global__ static void eulerf_rho( cucmplx*, const cucmplx*, const cucmplx*, const cureal );
-__global__ static void ab2_rho( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
-__global__ static void ab2_rho( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
-__global__ static void ab3_rho( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
-__global__ static void ab3_rho( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, cureal );
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void dissipate_rho( const int);
-__global__ static void eulerb_rho( cucmplx*, const cureal );
-__global__ static void bdf2_rho( cucmplx*, const cureal );
+void time_advance
+    ( int    &istep
+    , cureal &time
+);
 
-static void advect_omg( const int );
-__global__ static void add_rho( cucmplx*, const cucmplx* );
-__global__ static void eulerf_omg( cucmplx*, const cucmplx*, const cucmplx*, const cureal );
-__global__ static void ab2_omg( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
-__global__ static void ab2_omg( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
-__global__ static void ab3_omg( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
-__global__ static void ab3_omg( cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cucmplx*, const cureal );
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void dissipate_omg( const int );
-__global__ static void eulerb_omg( cucmplx*, const cureal );
-__global__ static void bdf2_omg( cucmplx*, const cureal );
+static void check_cfl
+    ( cureal &delt
+);
 
+static cureal maxval
+    ( cureal *field
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void renew_fields
+    ( void
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void advect_rho
+    ( const int istep
+);
+
+__global__ static void add_phi
+    (       cucmplx *dadt0
+    , const cucmplx *aphi
+);
+
+__global__ static void eulerf_rho
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
+    , const cureal   delt
+);
+
+__global__ static void ab2_rho
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cureal   delt
+);
+
+__global__ static void ab2_rho
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *fa2
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cureal   delt
+);
+
+__global__ static void ab3_rho
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cucmplx *dadt2
+    , const cureal   delt
+);
+
+__global__ static void ab3_rho
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *fa2
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cucmplx *dadt2
+    , const cureal   delt
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void dissipate_rho
+    ( const int istep
+);
+
+__global__ static void eulerb_rho
+    (       cucmplx *fa0
+    , const cureal   delt
+);
+
+__global__ static void bdf2_rho
+    (       cucmplx *fa0
+    , const cureal   delt
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void advect_omg
+    ( const int istep
+);
+
+__global__ static void add_rho
+    (       cucmplx *dadt0
+    , const cucmplx *arho1
+);
+
+__global__ static void eulerf_omg
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
+    , const cureal   delt
+);
+
+__global__ static void ab2_omg
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cureal   delt
+);
+
+__global__ static void ab2_omg
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *fa2
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cureal   delt
+);
+
+__global__ static void ab3_omg
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cucmplx *dadt2
+    , const cureal   delt
+);
+
+__global__ static void ab3_omg
+    (       cucmplx *fa0
+    , const cucmplx *fa1
+    , const cucmplx *fa2
+    , const cucmplx *dadt0
+    , const cucmplx *dadt1
+    , const cucmplx *dadt2
+    , const cureal   delt
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void dissipate_omg
+    ( const int istep
+);
+
+__global__ static void eulerb_omg
+    (       cucmplx *fa0
+    , const cureal   delt
+);
+
+__global__ static void bdf2_omg
+    (       cucmplx *fa0
+    , const cureal   delt
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+/* ---------------------------------------------------------------------------------------------- */
+/*  Function Definition                                                                           */
 /* ---------------------------------------------------------------------------------------------- */
 
 void init_tint
@@ -75,6 +244,8 @@ void finish_tint
     cudaFree( dv_ctmp );
     delete[] ff;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void initialize
     ( void
@@ -94,15 +265,15 @@ void initialize
     for( ix = 0; ix < nx; ix++ ){
         for( iy = 0; iy < ny; iy++ ){
             omgz[ix*ny+iy] = 0;
-            rho[ix*ny+iy] = rho_eps1*cos(2*xx[ix] + 10*yy[iy]);
+            rho[ix*ny+iy]  = rho_eps1 * cos(2*xx[ix] + 10*yy[iy]);
         }
     }
     cudaMemcpy( dv_omgz, omgz, sizeof(cureal)*nx*ny, cudaMemcpyHostToDevice );
-    cudaMemcpy( dv_rho, rho, sizeof(cureal)*nx*ny, cudaMemcpyHostToDevice );
+    cudaMemcpy( dv_rho,  rho,  sizeof(cureal)*nx*ny, cudaMemcpyHostToDevice );
     xtok( dv_omgz, dv_aomg0 );
-    xtok( dv_rho, dv_arho0 );
+    xtok( dv_rho,  dv_arho0 );
 
-    if( noise ) init_dis();
+    if( noise_flag ) init_dis();
 
     neg_lapinv <<< cgrid2, block >>> ( dv_aomg0, dv_aphi );
     get_vector( dv_aphi, dv_vx, dv_vy );
@@ -151,6 +322,8 @@ __global__ static void disturb
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void time_advance
     ( int    &istep
     , cureal &time
@@ -169,6 +342,8 @@ void time_advance
     istep++;
     time += delt;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static void check_cfl
     ( cureal &delt
@@ -195,19 +370,20 @@ static void check_cfl
 }
 
 static cureal maxval
-    ( cureal *ff
+    ( cureal *field
 ){
-    cureal maxvalue;
+    cureal maxvalue = 0;
 
-    maxvalue = 0;
     for( int ix = 0; ix <= nx; ix++ ){
         for( int iy = 0; iy <= ny; iy++ )
-            if( maxvalue < fabs(ff[ix*(ny+1)+iy]) )
-                maxvalue = fabs(ff[ix*(ny+1)+iy]);
+            if( maxvalue < fabs(field[ix*(ny+1)+iy]) )
+                maxvalue = fabs(field[ix*(ny+1)+iy]);
     }
 
     return maxvalue;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static void renew_fields
     ( void
@@ -220,6 +396,8 @@ static void renew_fields
     tmp = dv_arho2; dv_arho2 = dv_arho1; dv_arho1 = dv_arho0; dv_arho0 = tmp;
     tmp = dv_drho2; dv_drho2 = dv_drho1; dv_drho1 = dv_drho0; dv_drho0 = tmp;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static void advect_rho
     ( const int istep
@@ -240,50 +418,52 @@ static void advect_rho
         case 2:
             switch( istep ){
                 case 0:
-                    eulerf_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, dv_drho0, 
-                                                      delt );
+                    eulerf_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1
+                                                    , dv_drho0
+                                                    , delt );
                     break;
                 default:
                     if( nu < eps ){
-                        ab2_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, 
-                                                       dv_drho0, dv_drho1, 
-                                                       delt );
+                        ab2_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1
+                                                     , dv_drho0, dv_drho1
+                                                     , delt );
                     }
                     else{
-                        ab2_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, dv_arho2, 
-                                                       dv_drho0, dv_drho1, 
-                                                       delt );
+                        ab2_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, dv_arho2
+                                                     , dv_drho0, dv_drho1
+                                                     , delt );
                     }
                     break;
             }
         case 3:
             switch( istep ){
                 case 0:
-                    eulerf_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, dv_drho0, 
-                                                      delt );
+                    eulerf_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1
+                                                    , dv_drho0
+                                                    , delt );
                     break;
                 case 1:
                     if( nu < eps ){
-                        ab2_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, 
-                                                       dv_drho0, dv_drho1, 
-                                                       delt );
+                        ab2_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1
+                                                     , dv_drho0, dv_drho1
+                                                     , delt );
                     }
                     else{
-                        ab2_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, dv_arho2, 
-                                                       dv_drho0, dv_drho1, 
-                                                       delt );
+                        ab2_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, dv_arho2
+                                                     , dv_drho0, dv_drho1
+                                                     , delt );
                     }
                     break;
                 default:
                     if( nu < eps ){
-                        ab3_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, 
-                                                       dv_drho0, dv_drho1, dv_drho2, 
-                                                       delt );
+                        ab3_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1
+                                                     , dv_drho0, dv_drho1, dv_drho2
+                                                     , delt );
                     }
                     else{
-                        ab3_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, dv_arho2, 
-                                                       dv_drho0, dv_drho1, dv_drho2, 
-                                                       delt );
+                        ab3_rho <<< cgrid, block >>> ( dv_arho0, dv_arho1, dv_arho2
+                                                     , dv_drho0, dv_drho1, dv_drho2
+                                                     , delt );
                     }
                     break;
             }
@@ -377,6 +557,8 @@ __global__ static void ab3_rho
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 static void dissipate_rho
     ( const int istep
 ){
@@ -428,6 +610,8 @@ __global__ static void bdf2_rho
         fa0[tid] = fa0[tid] / ( 1.0 + (2.0/3.0) * delt * ct_kappa * gb_kperp2_shear[tid] );
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 static void advect_omg
     ( const int istep
 ){
@@ -442,56 +626,59 @@ static void advect_omg
 
     switch( nrst ){
         case 1:
-            eulerf_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, dv_domg0, 
-                                              delt );
+            eulerf_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1
+                                            , dv_domg0
+                                            , delt );
             break;
         case 2:
             switch( istep ){
                 case 0:
-                    eulerf_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, dv_domg0, 
-                                                      delt );
+                    eulerf_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1
+                                                    , dv_domg0
+                                                    , delt );
                     break;
                 default:
                     if( nu < eps ){
-                        ab2_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, 
-                                                       dv_domg0, dv_domg1, 
-                                                       delt );
+                        ab2_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1
+                                                     , dv_domg0, dv_domg1
+                                                     , delt );
                     }
                     else{
-                        ab2_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, dv_aomg2, 
-                                                       dv_domg0, dv_domg1, 
-                                                       delt );
+                        ab2_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, dv_aomg2
+                                                     , dv_domg0, dv_domg1
+                                                     , delt );
                     }
                     break;
             }
         case 3:
             switch( istep ){
                 case 0:
-                    eulerf_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, dv_domg0, 
-                                                      delt );
+                    eulerf_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1
+                                                    , dv_domg0
+                                                    , delt );
                     break;
                 case 1:
                     if( nu < eps ){
-                        ab2_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, 
-                                                       dv_domg0, dv_domg1, 
-                                                       delt );
+                        ab2_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1
+                                                     , dv_domg0, dv_domg1
+                                                     , delt );
                     }
                     else{
-                        ab2_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, dv_aomg2, 
-                                                       dv_domg0, dv_domg1, 
-                                                       delt );
+                        ab2_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, dv_aomg2
+                                                     , dv_domg0, dv_domg1
+                                                     , delt );
                     }
                     break;
                 default:
                     if( nu < eps ){
-                        ab3_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, 
-                                                       dv_domg0, dv_domg1, dv_domg2, 
-                                                       delt );
+                        ab3_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1
+                                                     , dv_domg0, dv_domg1, dv_domg2
+                                                     , delt );
                     }
                     else{
-                        ab3_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, dv_aomg2, 
-                                                       dv_domg0, dv_domg1, dv_domg2, 
-                                                       delt );
+                        ab3_omg <<< cgrid, block >>> ( dv_aomg0, dv_aomg1, dv_aomg2
+                                                     , dv_domg0, dv_domg1, dv_domg2
+                                                     , delt );
                     }
                     break;
             }
@@ -585,6 +772,8 @@ __global__ static void ab3_omg
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 static void dissipate_omg
     ( const int istep
 ){
@@ -635,3 +824,5 @@ __global__ static void bdf2_omg
     if( tid < ct_nkx*ct_nky )
         fa0[tid] = fa0[tid] / ( 1.0 + (2.0/3.0)*delt * ct_nu * gb_kperp2_shear[tid] );
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,4 +1,7 @@
+// CUDA headers
 #include <cuda.h>
+
+// Local headers
 #include "cmplx.h"
 #include "fft.h"
 

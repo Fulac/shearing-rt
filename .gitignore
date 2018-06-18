@@ -1,1 +1,7 @@
+/main
+/main.exe
 /data_files/*
+/*.o
+/*.obj
+/*.lib
+/*.exp

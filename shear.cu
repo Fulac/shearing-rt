@@ -1,9 +1,14 @@
+// C headers
 #include <cstdio>
 #include <cmath>
+
+// CUDA headers
 #include <cuda.h>
+
+// Local headers
 #include "cmplx.h"
 #include "fft.h"
-#include "four.h"
+#include "fourier.h"
 #include "fields.h"
 
 namespace{
@@ -17,7 +22,7 @@ namespace{
 
 __device__ cureal *gb_ky_shift, *gb_kperp2_shear;
 
-/* ---------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------------------- */
 
 void init_shear( void );
 void finish_shear( void );
@@ -38,7 +43,7 @@ __global__ static void shearing_ky( const cureal );
 __global__ static void get_kperp2_shear( void );
 __global__ static void shearing_field( const cucmplx*, cucmplx* );
 
-/* ---------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------------------- */
 
 void init_shear
     ( void

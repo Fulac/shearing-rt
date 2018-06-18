@@ -1,5 +1,8 @@
+// CUDA headers
 #include <cuda.h>
 #include <cufft.h>
+
+// Local headers
 #include "cmplx.h"
 
 int nthread;

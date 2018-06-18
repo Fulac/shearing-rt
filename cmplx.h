@@ -1,6 +1,7 @@
 #ifndef __CMPLX_H__
 #define __CMPLX_H__
 
+// CUDA headers
 #include <cuComplex.h>
 
 #ifdef DBLE
