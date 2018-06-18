@@ -17,6 +17,8 @@ endif
 .SUFFIXES:
 .SUFFIXES: .cu .obj
 
+-include Makefile.local
+
 .cu.obj:
 	$(NVCC) -dc $(NVCCFLAGS) $(IGNOREWARNING) $<
 
