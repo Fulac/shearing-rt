@@ -5,11 +5,17 @@
 // Local headers
 #include "cmplx.h"
 
+/* ---------------------------------------------------------------------------------------------- */
+/*  Global Variables Definition                                                                   */
+/* ---------------------------------------------------------------------------------------------- */
+
+// プログラム全体で使用する変数を定義
 int nthread;
 int nx, ny, nkx, nky, nkxh, nkxh2, nkxpad, ncy;
 __constant__ int ct_nx, ct_ny, ct_nkx, ct_nky;
 __constant__ int ct_nkxh, ct_nkxh2, ct_nkxpad, ct_ncy;
 
+// このファイル内でのみ使用するグローバル変数を定義
 namespace{
     cureal  *dv_rtmp;
     cucmplx *dv_ctmp1, *dv_ctmp2;
@@ -17,19 +23,67 @@ namespace{
     cufftHandle pr2c, pc2r, pc2c;
 }
 
-/* ---------------------------------------------------------------- */
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void init_fft( void );
-void finish_fft( void );
-void xtok( cureal*, cucmplx* );
-__global__ static void scale_dealias( const cucmplx*, cucmplx* );
-void ktox( const cucmplx*, cureal* );
-__global__ static void pad2d( const cucmplx*, cucmplx* );
-void ktox_1d( const cucmplx*, cureal* );
-__global__ static void transpose( const cucmplx*, cucmplx* );
-__global__ static void trans_inv( const cucmplx*, cureal* );
 
-/* ---------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------------------- */
+/*  Function Prototype                                                                            */
+/* ---------------------------------------------------------------------------------------------- */
+
+void init_fft
+    ( void
+);
+void finish_fft
+    ( void
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void xtok
+    ( cureal  *in
+    , cucmplx *out
+);
+
+__global__ static void scale_dealias
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ktox
+    ( const cucmplx *in
+    ,       cureal  *out
+);
+
+__global__ static void pad2d
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ktox_1d
+    ( const cucmplx *in
+    ,       cureal  *out
+);
+
+__global__ static void transpose
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+__global__ static void trans_inv
+    ( const cucmplx *in
+    ,       cureal  *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+/* ---------------------------------------------------------------------------------------------- */
+/*  Function Definition                                                                           */
+/* ---------------------------------------------------------------------------------------------- */
 
 void init_fft
     ( void 
@@ -77,6 +131,8 @@ void finish_fft
     cudaFree( dv_ctmp2 );
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void xtok
     ( cureal  *in
     , cucmplx *out 
@@ -105,6 +161,8 @@ __global__ static void scale_dealias
         else out[tid] = in[(xid+ct_nkxpad)*ct_ncy+yid] / (ct_nx*ct_ny);
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ktox
     ( const cucmplx *in
@@ -138,6 +196,8 @@ __global__ static void pad2d
         else out[tid] = CZERO;
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ktox_1d
     ( const cucmplx *in
@@ -182,3 +242,5 @@ __global__ static void trans_inv
         out[xid*ct_ny+yid] = in[tid].x;
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////

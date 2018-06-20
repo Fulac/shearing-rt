@@ -6,32 +6,111 @@
 #include "cmplx.h"
 #include "fft.h"
 
+/* ---------------------------------------------------------------------------------------------- */
+/*  Global Variables Definition                                                                   */
+/* ---------------------------------------------------------------------------------------------- */
+
+// プログラム全体で使用する変数を定義
 cureal *kx, *ky, *kperp2, *dv_kx, *dv_ky, *dv_kperp2;
 __device__ cureal *gb_kx, *gb_ky, *gb_kperp2;
 
 cureal Lx, Ly;
 
+// このファイル内でのみ使用するグローバル変数を定義
 namespace{
     cureal *dv_rtmp;
     cucmplx *dv_ctmp;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+/* ---------------------------------------------------------------------------------------------- */
+/*  Function Prototype                                                                            */
 /* ---------------------------------------------------------------------------------------------- */
 
-void init_four( void );
-void finish_four( void );
-__global__ void negative( cureal* );
-__global__ void ddx( const cucmplx*, cucmplx* );
-__global__ void neg_ddx( const cucmplx*, cucmplx* );
-__global__ void ddy( const cucmplx*, cucmplx* );
-__global__ void neg_ddy( const cucmplx*, cucmplx* );
-__global__ void laplacian( const cucmplx*, cucmplx* );
-__global__ void neg_lapinv( const cucmplx*, cucmplx * );
-void get_vector( const cucmplx*, cureal*, cureal* );
-void poisson_bracket( const cureal*, const cureal*, const cucmplx*, cureal* );
-__global__ void mult_real_field( const cureal*, cureal* );
-__global__ void add_real_field( const cureal*, cureal* );
+void init_four
+    ( void
+);
 
+void finish_four
+    ( void
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__global__ void negative
+    ( cureal *field
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__global__ void ddx
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+__global__ void neg_ddx
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__global__ void ddy
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+__global__ void neg_ddy
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__global__ void laplacian
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+__global__ void neg_lapinv
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void get_vector
+    ( const cucmplx *dv_aphi
+    ,       cureal  *dv_vectx
+    ,       cureal  *dv_vecty
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void poisson_bracket
+    ( const cureal  *dv_vectx
+    , const cureal  *dv_vecty
+    , const cucmplx *in
+    ,       cureal  *out
+);
+
+__global__ void mult_real_field
+    ( const cureal *fa
+    ,       cureal *fb
+);
+
+__global__ void add_real_field
+    ( const cureal *fa
+    ,       cureal *fb
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+/* ---------------------------------------------------------------------------------------------- */
+/*  Function Definition                                                                           */
 /* ---------------------------------------------------------------------------------------------- */
 
 void init_four
@@ -86,6 +165,8 @@ void finish_four
     cudaFree( dv_ctmp );
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 __global__ void negative
     ( cureal *field 
 ){
@@ -93,6 +174,8 @@ __global__ void negative
 
     if( tid < ct_nx*ct_ny ) field[tid] = -field[tid];
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 __global__ void ddx
     ( const cucmplx *in
@@ -114,6 +197,8 @@ __global__ void neg_ddx
     if( tid < ct_nkx*ct_nky ) out[tid] = -CIMAG * gb_kx[xid] * in[tid];
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 __global__ void ddy
     ( const cucmplx *in
     ,       cucmplx *out 
@@ -134,6 +219,8 @@ __global__ void neg_ddy
     if( tid > ct_nkx*ct_nky ) out[tid] = -CIMAG * gb_ky[yid] * in[tid];
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 __global__ void laplacian
     ( const cucmplx *in
     ,       cucmplx *out 
@@ -152,6 +239,8 @@ __global__ void neg_lapinv
     if( tid <= ct_nkx*ct_nky-1 ) out[tid] = in[tid] / gb_kperp2[tid];
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void get_vector
     ( const cucmplx *dv_aphi
     ,       cureal  *dv_vectx
@@ -166,6 +255,8 @@ void get_vector
     neg_ddx <<< cgrid, block >>> ( dv_aphi, dv_ctmp );
     ktox( dv_ctmp, dv_vecty );
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void poisson_bracket
     ( const cureal  *dv_vectx
@@ -204,3 +295,5 @@ __global__ void add_real_field
 
     if( tid < ct_nx*ct_ny ) fb[tid] = fa[tid] + fb[tid];
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////

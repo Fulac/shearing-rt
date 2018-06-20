@@ -11,6 +11,11 @@
 #include "fourier.h"
 #include "fields.h"
 
+/* ---------------------------------------------------------------------------------------------- */
+/*  Global Variables Definition                                                                   */
+/* ---------------------------------------------------------------------------------------------- */
+
+// このファイル内でのみ使用するグローバル変数を定義
 namespace{
     int *ikx_indexed, *dv_ikx_indexed, jump_flag, *dv_jump;
     __device__ int *gb_ikx_indexed, *gb_jump;
@@ -20,29 +25,109 @@ namespace{
     cucmplx *dv_ctmp1, *dv_ctmp2, *dv_ctmp3;
 }
 
+// プログラム全体で使用する変数を定義
 __device__ cureal *gb_ky_shift, *gb_kperp2_shear;
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+/* ---------------------------------------------------------------------------------------------- */
+/*  Function Prototype                                                                            */
 /* ---------------------------------------------------------------------------------------------- */
 
-void init_shear( void );
-void finish_shear( void );
+void init_shear
+    ( void
+);
 
-__global__ void ddy_shear( const cucmplx*, cucmplx* );
-__global__ void laplacian_shear( const cucmplx*, cucmplx* );
-__global__ void neg_lapinv_shear( const cucmplx*, cucmplx* );
-void get_vector_shear( const cucmplx*, cureal*, cureal* );
-void poisson_bracket_shear( const cureal*, const cureal*, const cucmplx*, cureal* );
+void finish_shear
+    ( void
+);
 
-__global__ void seq_ktox_shear( const cucmplx*, cureal* );
-void ktox_shear( const cucmplx*, cureal* );
-__global__ static void idft_shear_y( const cucmplx*, cucmplx* );
-__global__ static void pad2d( const cucmplx*, cucmplx* );
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void update_shear( const cureal );
-__global__ static void shearing_ky( const cureal );
-__global__ static void get_kperp2_shear( void );
-__global__ static void shearing_field( const cucmplx*, cucmplx* );
+void update_shear
+    ( const cureal delt
+);
 
+__global__ static void shearing_ky
+    ( const cureal delt
+);
+
+__global__ static void shearing_field
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__global__ static void get_kperp2_shear
+    ( void
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__global__ void ddy_shear
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+__global__ void laplacian_shear
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+__global__ void neg_lapinv_shear
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void get_vector_shear
+    ( const cucmplx *dv_aphi
+    ,       cureal  *dv_vectx
+    ,       cureal  *dv_vecty
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void poisson_bracket_shear
+    ( const cureal  *dv_vectx
+    , const cureal  *dv_vecty
+    , const cucmplx *in
+    ,       cureal  *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__global__ void seq_ktox_shear
+    ( const cucmplx *in
+    ,       cureal  *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ktox_shear
+    ( const cucmplx *in
+    ,       cureal  *out
+);
+
+__global__ static void idft_shear_y
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+__global__ static void pad2d
+    ( const cucmplx *in
+    ,       cucmplx *out
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+/* ---------------------------------------------------------------------------------------------- */
+/*  Function Definition                                                                           */
 /* ---------------------------------------------------------------------------------------------- */
 
 void init_shear
@@ -91,6 +176,116 @@ void finish_shear
     cudaFree( dv_ctmp3 );
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void update_shear
+    ( const cureal delt 
+){
+    dim3 block( nthread );
+    dim3 kxgrid( ((nkx-1)+nthread-1)/nthread );
+    dim3 cgrid( (nkx*nky+nthread-1)/nthread );
+
+    shearing_ky <<< kxgrid, block >>> ( delt );
+
+    cudaMemcpy( &jump_flag, dv_jump+1, sizeof(int), cudaMemcpyDeviceToHost );
+    if( jump_flag != 0 ){
+        cudaMemcpy( dv_ctmp1, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aomg0 );
+        cudaMemcpy( dv_ctmp1, dv_aomg1, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aomg1 );
+        cudaMemcpy( dv_ctmp1, dv_aomg2, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aomg2 );
+
+        cudaMemcpy( dv_ctmp1, dv_domg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_domg0 );
+        cudaMemcpy( dv_ctmp1, dv_domg1, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_domg1 );
+        cudaMemcpy( dv_ctmp1, dv_domg2, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_domg2 );
+
+        cudaMemcpy( dv_ctmp1, dv_arho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_arho0 );
+        cudaMemcpy( dv_ctmp1, dv_arho1, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_arho1 );
+        cudaMemcpy( dv_ctmp1, dv_arho2, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_arho2 );
+
+        cudaMemcpy( dv_ctmp1, dv_drho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_drho0 );
+        cudaMemcpy( dv_ctmp1, dv_drho1, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_drho1 );
+        cudaMemcpy( dv_ctmp1, dv_drho2, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_drho2 );
+
+        cudaMemcpy( dv_ctmp1, dv_aphi, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
+        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aphi );
+    }
+
+    get_kperp2_shear <<< cgrid, block >>> ();
+}
+
+__global__ static void shearing_ky
+    ( const cureal delt
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x + 1;
+
+    if( tid <= ct_nkx-1 ){
+        gb_ky_shift[tid] = gb_ky_shift[tid] - ct_sigma * gb_kx[tid] * delt;
+        gb_jump[tid] = floor( gb_ky_shift[tid]/gb_ky[1] + 0.5 );
+
+        __syncthreads();
+
+        if( gb_jump[1] != 0 )
+            gb_ky_shift[tid] = gb_ky_shift[tid] - gb_jump[tid] * gb_ky[1];
+    }
+}
+
+__global__ static void shearing_field
+    ( const cucmplx *in
+    ,       cucmplx *out
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int xid = tid/ct_nky, yid = tid%ct_nky;
+
+    if( tid < ct_nkx*ct_nky ){
+        if( gb_jump[xid] <= 0 ){
+            if( yid-gb_jump[xid] < ct_nky ){
+                out[tid] = in[xid*ct_nky+(yid-gb_jump[xid])];
+            }
+            else{
+                out[tid] = CZERO;
+            }
+        }
+        else{
+            if( yid-gb_jump[xid] > 0 ){
+                out[tid] = in[xid*ct_nky+(yid-gb_jump[xid])];
+            }
+            else{
+                out[tid].x =  in[gb_ikx_indexed[xid]*ct_nky+(gb_jump[xid]-yid)].x;
+                out[tid].y = -in[gb_ikx_indexed[xid]*ct_nky+(gb_jump[xid]-yid)].y;
+            }
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+__global__ static void get_kperp2_shear
+    ( void
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    int xid = tid/ct_nky, yid = tid%ct_nky;
+    cureal kxs, kys;
+
+    if( tid < ct_nkx*ct_nky ){
+        kxs = gb_kx[xid];
+        kys = gb_ky[yid] + gb_ky_shift[xid];
+        gb_kperp2_shear[tid] = kxs*kxs + kys*kys;
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 __global__ void ddy_shear
     ( const cucmplx *in
     ,       cucmplx *out
@@ -104,6 +299,8 @@ __global__ void ddy_shear
         out[tid] = CIMAG * kys * in[tid];
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 __global__ void laplacian_shear
     ( const cucmplx *in
@@ -123,6 +320,8 @@ __global__ void neg_lapinv_shear
     if( tid <= ct_nkx*ct_nky-1 ) out[tid] = in[tid] / gb_kperp2_shear[tid];
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void get_vector_shear
     ( const cucmplx *dv_aphi
     ,       cureal  *dv_vectx
@@ -137,6 +336,8 @@ void get_vector_shear
     neg_ddx <<< cgrid, block >>> ( dv_aphi, dv_ctmp1 );
     ktox( dv_ctmp1, dv_vecty );
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void poisson_bracket_shear
     ( const cureal  *dv_vectx
@@ -158,6 +359,8 @@ void poisson_bracket_shear
 
     add_real_field <<< rgrid, block >>> ( dv_rtmp, out );
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 __global__ void seq_ktox_shear
     ( const cucmplx *in
@@ -185,6 +388,8 @@ __global__ void seq_ktox_shear
         out[tid] = out_data;
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void ktox_shear
     ( const cucmplx *in
@@ -248,105 +453,4 @@ __global__ static void pad2d
     }
 }
 
-void update_shear
-    ( const cureal delt 
-){
-    dim3 block( nthread );
-    dim3 kxgrid( ((nkx-1)+nthread-1)/nthread );
-    dim3 cgrid( (nkx*nky+nthread-1)/nthread );
-
-    shearing_ky <<< kxgrid, block >>> ( delt );
-    get_kperp2_shear <<< cgrid, block >>> ();
-
-    cudaMemcpy( &jump_flag, dv_jump+1, sizeof(int), cudaMemcpyDeviceToHost );
-    if( jump_flag != 0 ){
-        cudaMemcpy( dv_ctmp1, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aomg0 );
-        cudaMemcpy( dv_ctmp1, dv_aomg1, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aomg1 );
-        cudaMemcpy( dv_ctmp1, dv_aomg2, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aomg2 );
-
-        cudaMemcpy( dv_ctmp1, dv_domg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_domg0 );
-        cudaMemcpy( dv_ctmp1, dv_domg1, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_domg1 );
-        cudaMemcpy( dv_ctmp1, dv_domg2, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_domg2 );
-
-        cudaMemcpy( dv_ctmp1, dv_arho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_arho0 );
-        cudaMemcpy( dv_ctmp1, dv_arho1, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_arho1 );
-        cudaMemcpy( dv_ctmp1, dv_arho2, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_arho2 );
-
-        cudaMemcpy( dv_ctmp1, dv_drho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_drho0 );
-        cudaMemcpy( dv_ctmp1, dv_drho1, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_drho1 );
-        cudaMemcpy( dv_ctmp1, dv_drho2, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_drho2 );
-
-        cudaMemcpy( dv_ctmp1, dv_aphi, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
-        shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aphi );
-    }
-}
-
-__global__ static void shearing_ky
-    ( const cureal delt
-){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x + 1;
-
-    if( tid <= ct_nkx-1 ){
-        gb_ky_shift[tid] = gb_ky_shift[tid] - ct_sigma * gb_kx[tid] * delt;
-        gb_jump[tid] = floor( gb_ky_shift[tid]/gb_ky[1] + 0.5 );
-
-        __syncthreads();
-
-        if( gb_jump[1] != 0 )
-            gb_ky_shift[tid] = gb_ky_shift[tid] - gb_jump[tid] * gb_ky[1];
-    }
-}
-
-__global__ static void get_kperp2_shear
-    ( void
-){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    int xid = tid/ct_nky, yid = tid%ct_nky;
-    cureal kxs, kys;
-
-    if( tid < ct_nkx*ct_nky ){
-        kxs = gb_kx[xid];
-        kys = gb_ky[yid] + gb_ky_shift[xid];
-        gb_kperp2_shear[tid] = kxs*kxs + kys*kys;
-    }
-}
-
-__global__ static void shearing_field
-    ( const cucmplx *in
-    ,       cucmplx *out
-){
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    int xid = tid/ct_nky, yid = tid%ct_nky;
-
-    if( tid < ct_nkx*ct_nky ){
-        if( gb_jump[xid] <= 0 ){
-            if( yid-gb_jump[xid] < ct_nky ){
-                out[tid] = in[xid*ct_nky+(yid-gb_jump[xid])];
-            }
-            else{
-                out[tid] = CZERO;
-            }
-        }
-        else{
-            if( yid-gb_jump[xid] > 0 ){
-                out[tid] = in[xid*ct_nky+(yid-gb_jump[xid])];
-            }
-            else{
-                out[tid].x =  in[gb_ikx_indexed[xid]*ct_nky+(gb_jump[xid]-yid)].x;
-                out[tid].y = -in[gb_ikx_indexed[xid]*ct_nky+(gb_jump[xid]-yid)].y;
-            }
-        }
-    }
-}
+////////////////////////////////////////////////////////////////////////////////////////////////////

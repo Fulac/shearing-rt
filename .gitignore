@@ -1,7 +1,9 @@
 /main
 /main.exe
 /Makefile.local
-/data_files/*
+/output_data/*
+/input_file/*.ini
+/input_file/*.txt
 /*.dat
 /*.o
 /*.obj

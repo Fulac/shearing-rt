@@ -5,10 +5,10 @@
 #include <cuComplex.h>
 
 #ifdef DBLE
-    typedef double cureal;
+    typedef double          cureal;
     typedef cuDoubleComplex cucmplx;
 #else
-    typedef float cureal;
+    typedef float     cureal;
     typedef cuComplex cucmplx;
 #endif
 

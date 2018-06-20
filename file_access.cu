@@ -3,6 +3,9 @@
 #include <cmath>
 
 // C++ headers
+#include <string>
+
+// Boost headers
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
@@ -14,10 +17,16 @@
 #include "time_integral.h"
 #include "shear.h"
 
+/* ---------------------------------------------------------------------------------------------- */
+/*  Global Variables Definition                                                                   */
+/* ---------------------------------------------------------------------------------------------- */
+
+// プログラム全体で使用する変数を定義
 bool   write_fields;
 int    nwrite;
 cureal otime, next_otime;
 
+// このファイル内でのみ使用するグローバル変数を定義
 namespace{
     FILE *fp;
     char *filename;
@@ -25,28 +34,63 @@ namespace{
     cureal  *ensp_ao, *ensp_ap, *ensp_ar;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/* ---------------------------------------------------------------------------------------------- */
+/*  Function Prototype                                                                            */
 /* ---------------------------------------------------------------------------------------------- */
 
-void input_data( void );
+void input_data
+    ( void
+);
+
 template <class T>
 T readEntry
    ( boost::property_tree::ptree pt
    , std::string section
    , std::string name
-   , T defaultValue );
-void init_output( void );
-void finish_output( void );
-void output_fields( int, cureal );
-static cureal phi_max( cureal* );
-void en_spectral( int, cureal );
+   , T defaultValue
+);
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void init_output
+    ( void
+);
+
+void finish_output
+    ( void
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void output_fields
+    ( const int    istep
+    , const cureal time
+);
+
+static cureal phi_max
+    ( const cureal *phi
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void en_spectral
+    ( const int    istep
+    , const cureal time
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+/* ---------------------------------------------------------------------------------------------- */
+/*  Function Definition                                                                           */
 /* ---------------------------------------------------------------------------------------------- */
 
 void input_data
     ( void
 ){
     boost::property_tree::ptree pt;
-    std::string tempstr;
 
     try{
         boost::property_tree::read_ini( "config.ini", pt );
@@ -65,35 +109,6 @@ void input_data
     delt = readEntry<cureal>( pt, "simulation", "time step", 1e-3 );
     tmax = readEntry<cureal>( pt, "simulation", "time max", 30 );
     nthread = readEntry<cureal>( pt, "simulation", "cuda thread num", 1024 );
-
-    tempstr = readEntry<std::string>( pt, "simulation", "advection method", "ab3" );
-    if( tempstr == "forward euler" ){
-        nrst = 1;
-    }
-    else if( tempstr == "ab2" ){
-        nrst = 2;
-    }
-    else if( tempstr == "ab3" ){
-        nrst = 3;
-    }
-    else{
-        printf( "ERROR: unknown advection method: %s\n", tempstr.c_str() );
-        printf( "       Available methods: forward euler, ab2, ab3\n" );
-        exit(1);
-    }
-
-    tempstr = readEntry<std::string>( pt, "simulation", "dissipation method", "bdf2" );
-    if( tempstr == "backward euler" ){
-        nst = 2;
-    }
-    else if( tempstr == "bdf2" ){
-        nst = 3;
-    }
-    else{
-        printf( "ERROR: unknown dissipation method: %s\n", tempstr.c_str() );
-        printf( "       Available methods: backward euler, bdf2\n" );
-        exit(1);
-    }
 
     // output parameters
     otime = readEntry<cureal>( pt, "output", "output time step", 1.0 );
@@ -135,6 +150,8 @@ T readEntry
    return value;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void init_output
     ( void 
 ){
@@ -161,9 +178,11 @@ void finish_output
     delete[] ensp_ar;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void output_fields
-    ( int    istep
-    , cureal time 
+    ( const int    istep
+    , const cureal time 
 ){
     dim3 block( nthread );
     dim3 rgrid( (nx*ny+nthread-1)/nthread );
@@ -205,7 +224,7 @@ void output_fields
 }
 
 static cureal phi_max
-    ( cureal *phi
+    ( const cureal *phi
 ){
     cureal max_val = 0;
 
@@ -218,9 +237,11 @@ static cureal phi_max
     return max_val;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void en_spectral
-    ( int istep
-    , cureal time
+    ( const int    istep
+    , const cureal time
 ){
     cureal re, im;
     cureal ao, ap, ar;
@@ -331,3 +352,5 @@ void en_spectral
     }
     fclose( fp );
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////

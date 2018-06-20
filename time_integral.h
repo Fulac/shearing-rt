@@ -1,7 +1,6 @@
 #ifndef __TINT_H__
 #define __TINT_H__
 
-extern int nrst, nst;
 extern bool noise_flag;
 
 void init_tint
