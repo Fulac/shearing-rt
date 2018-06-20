@@ -1,4 +1,4 @@
-TARGET         = main
+TARGET         = shrt
 FILES          = *.cu *.h Makefile
 VER            = `date +%y%m%d`
 

@@ -2,7 +2,7 @@
 
 set -e
 
-SIMEXE=$(readlink -f main)
+SIMEXE=$(readlink -f shrt)
 
 if [[ "$#" = 2 ]]; then
    pushd . >/dev/null 2>&1
