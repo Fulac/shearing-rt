@@ -3,7 +3,6 @@
 /Makefile.local
 /output_data/*
 /input_file/*.ini
-/input_file/*.txt
 /*.dat
 /*.o
 /*.obj
