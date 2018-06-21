@@ -27,7 +27,7 @@ int main
 
     if( write_fields ){
         output_fields( istep, time );
-        en_spectral( istep, time );
+        /* en_spectral( istep, time ); */
     }
 
     while( time <= tmax ){

@@ -54,7 +54,8 @@ static void init_dis
 
 __global__ static void disturb
     ( cucmplx *dv_rho
-    , cureal  *dv_dis
+    , cureal  *dv_dis1
+    , cureal  *dv_dis2
 );
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -233,43 +234,52 @@ void initialize
 static void init_dis
     ( void
 ){
-    cureal *fk;
-    cureal *dv_dis;
+    cureal *fk1, *fk2;
+    cureal *dv_dis1, *dv_dis2;
     dim3 block( nthread );
     dim3 cgrid( (nkx*nky)+nthread-1/nthread );
 
-    fk = new cureal [nkx*nky];
-    cudaMalloc( (void**)&dv_dis, sizeof(cureal) * nkx *nky );
+    fk1 = new cureal [nkx*nky];
+    fk2 = new cureal [nkx*nky];
+    cudaMalloc( (void**)&dv_dis1, sizeof(cureal) * nkx *nky );
+    cudaMalloc( (void**)&dv_dis2, sizeof(cureal) * nkx *nky );
 
     srand( 10000 );
     for( int ikx = 0; ikx < nkx; ikx++ ){
         for( int iky = 0; iky < nky; iky++ ){
-            if( abs(kx[ikx]) <= 40 && abs(ky[iky]) <= 80 ){
-                fk[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)
-                                / sqrt(nx*ny);
+            if( abs(kx[ikx]) <= 2 && abs(ky[iky]) <= 10 ){
+                fk1[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)
+                                 / sqrt(nx*ny);
+                fk2[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)
+                                 / sqrt(nx*ny);
             }
             else{
-                fk[ikx*nky+iky] = 0;
+                fk1[ikx*nky+iky] = 0;
+                fk2[ikx*nky+iky] = 0;
             }
         }
     }
 
-    cudaMemcpy( dv_dis, fk, sizeof(cureal) * nkx *nky, cudaMemcpyHostToDevice );
-    disturb <<< cgrid, block >>> ( dv_arho0, dv_dis );
+    cudaMemcpy( dv_dis1, fk1, sizeof(cureal) * nkx *nky, cudaMemcpyHostToDevice );
+    cudaMemcpy( dv_dis2, fk2, sizeof(cureal) * nkx *nky, cudaMemcpyHostToDevice );
+    disturb <<< cgrid, block >>> ( dv_arho0, dv_dis1, dv_dis2 );
 
-    delete[] fk;
-    cudaFree( dv_dis );
+    delete[] fk1;
+    delete[] fk2;
+    cudaFree( dv_dis1 );
+    cudaFree( dv_dis2 );
 }
 
 __global__ static void disturb
     ( cucmplx *dv_rho
-    , cureal  *dv_dis
+    , cureal  *dv_dis1
+    , cureal  *dv_dis2
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if( tid < ct_nkx*ct_nky ){
-        dv_rho[tid].x = dv_rho[tid].x + dv_dis[tid];
-        dv_rho[tid].y = dv_rho[tid].y + dv_dis[tid];
+        dv_rho[tid].x = dv_rho[tid].x + dv_dis1[tid];
+        dv_rho[tid].y = dv_rho[tid].y + dv_dis2[tid];
     }
 }
 
@@ -282,11 +292,11 @@ void time_advance
     check_cfl( delt );
     renew_fields();
 
-    advect_rho( istep );
-    dissipate_rho( istep );
-
     advect_omg( istep );
     dissipate_omg( istep );
+
+    advect_rho( istep );
+    dissipate_rho( istep );
 
     update_shear( delt );
 
