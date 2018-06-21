@@ -1,5 +1,5 @@
-/main
-/main.exe
+/shrt
+/shrt.exe
 /Makefile.local
 /output_data/*
 /input_file/*.ini
