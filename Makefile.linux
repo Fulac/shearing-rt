@@ -6,35 +6,43 @@ CUDAARCH       = compute_61
 CUDACODE       = sm_61
 
 NVCC           = nvcc
-NVCCFLAGS      = -gencode arch=$(CUDAARCH),code=$(CUDACODE) -O3
+NVCCFLAGS      = -gencode arch=$(CUDAARCH),code=$(CUDACODE)
 NVCCLIBS       = -lcufft -lcurand
+
+ifeq ($(debug),on)
+  NVCCFLAGS += -DDEBUG -g -Xcompiler "-Wall -Wextra -Wno-long-long"
+else
+  NVCCFLAGS += -O3
+endif
 
 ifeq ($(dble),on)
   NVCCFLAGS += -DDBLE
 endif
 
+SRCS = fft.cu  fields.cu  file_access.cu  fourier.cu  main.cu  shear.cu  time_integral.cu
+OBJS = $(SRCS:.cu=.o)
+DEPS = $(OBJS:.o=.d)
+
+all: $(TARGET)
+
+.PHONY: clean distclean tar
+
 .SUFFIXES:
 .SUFFIXES: .cu .o
 
 -include Makefile.local
+-include $(DEPS)
 
 .cu.o:
-	$(NVCC) -dc $(NVCCFLAGS) $(IGNOREWARNING) $<
+	$(NVCC) -M  $(NVCCFLAGS) $< > $(<:.cu=.d)
+	$(NVCC) -dc $(NVCCFLAGS) $<
 
 # main program
-$(TARGET): main.o file_access.o time_integral.o shear.o fields.o fourier.o fft.o
+$(TARGET): $(OBJS)
 	$(NVCC) $^ -o $@ $(NVCCFLAGS) $(NVCCLIBS)
 
-main.o: shear.o shear.h time_integral.o time_integral.h
-file_access.o: shear.o shear.h time_integral.o time_integral.h
-time_integral.o: fourier.o fourier.h shear.o shear.h
-shear.o: fields.o fields.h
-fields.o: fourier.o fourier.h
-fourier.o: fft.o fft.h
-fft.o: cmplx.h
-
 clean:
-	rm -rf *.o *.exp *.lib *~ \#*
+	rm -rf *.o *.d *.exp *.lib *~ \#*
 
 distclean: clean
 	rm -rf $(TARGET)

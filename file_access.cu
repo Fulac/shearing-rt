@@ -17,6 +17,8 @@
 #include "time_integral.h"
 #include "shear.h"
 
+#define FILENAMELEN 256
+
 /* ---------------------------------------------------------------------------------------------- */
 /*  Global Variables Definition                                                                   */
 /* ---------------------------------------------------------------------------------------------- */
@@ -103,28 +105,28 @@ void input_data
     // simulation parameters
     nx = readEntry<int>( pt, "simulation", "nx",  512 );
     ny = readEntry<int>( pt, "simulation", "ny", 1024 );
-    Lx = readEntry<cureal>( pt, "simulation", "Lx", M_PI );
-    Ly = readEntry<cureal>( pt, "simulation", "Ly", M_PI );
-    eps = readEntry<cureal>( pt, "simulation", "eps", 1e-10 );
-    delt = readEntry<cureal>( pt, "simulation", "time step", 1e-3 );
-    tmax = readEntry<cureal>( pt, "simulation", "time max", 30 );
+    Lx      = readEntry<cureal>( pt, "simulation", "Lx", M_PI );
+    Ly      = readEntry<cureal>( pt, "simulation", "Ly", M_PI );
+    eps     = readEntry<cureal>( pt, "simulation", "eps", 1e-10 );
+    delt    = readEntry<cureal>( pt, "simulation", "time step", 1e-3 );
+    tmax    = readEntry<cureal>( pt, "simulation", "time max", 30 );
     nthread = readEntry<cureal>( pt, "simulation", "cuda thread num", 1024 );
 
     // output parameters
-    otime = readEntry<cureal>( pt, "output", "output time step", 1.0 );
-    nwrite = readEntry<int>( pt, "output", "output loop count", 100 );
-    write_fields = readEntry<bool>( pt, "output", "write output", true );
+    otime        = readEntry<cureal>( pt, "output", "output time step",  1.0 );
+    nwrite       = readEntry<int>(    pt, "output", "output loop count", 100 );
+    write_fields = readEntry<bool>(   pt, "output", "write output",      true );
 
     // problem parameters
-    noise_flag = readEntry<bool>( pt, "problem", "initial noise", true );
-    nu = readEntry<cureal>( pt, "problem", "nu", 1e-3 );
-    kappa = readEntry<cureal>( pt, "problem", "kappa", 1e-5 );
-    sigma = readEntry<cureal>( pt, "problem", "sigma", 1.0 );
-    g = readEntry<cureal>( pt, "problem", "g", 1.0 );
-    rho0_prime = readEntry<cureal>( pt, "problem", "rho0_prime", 1.0 );
-    rho0 = readEntry<cureal>( pt, "problem", "rho0", 1.0 );
-    rho_eps1 = readEntry<cureal>( pt, "problem", "rho_eps1", 1e-2 );
-    rho_eps2 = readEntry<cureal>( pt, "problem", "rho_eps2", rho_eps1/2.0 );
+    noise_flag = readEntry<bool>(   pt, "problem", "initial noise", true );
+    nu         = readEntry<cureal>( pt, "problem", "nu",            1e-3 );
+    kappa      = readEntry<cureal>( pt, "problem", "kappa",         1e-5 );
+    sigma      = readEntry<cureal>( pt, "problem", "sigma",         1.0 );
+    g          = readEntry<cureal>( pt, "problem", "g",             1.0 );
+    rho0_prime = readEntry<cureal>( pt, "problem", "rho0_prime",    1.0 );
+    rho0       = readEntry<cureal>( pt, "problem", "rho0",          1.0 );
+    rho_eps1   = readEntry<cureal>( pt, "problem", "rho_eps1",      1e-2 );
+    rho_eps2   = readEntry<cureal>( pt, "problem", "rho_eps2",      rho_eps1/2.0 );
 }
 
 template <class T>
@@ -156,7 +158,7 @@ void init_output
     ( void 
 ){
     next_otime = otime;
-    filename = new char[15];
+    filename = new char[FILENAMELEN];
 
     aomgz = new cucmplx[nkx*nky];
     aphi  = new cucmplx[nkx*nky];
@@ -205,11 +207,11 @@ void output_fields
     cudaMemcpy( phi,  dv_phi,  sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
     cudaMemcpy( rho,  dv_rho,  sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
 
-    sprintf( filename, "n%05d_t%09.6f.dat", istep/nwrite, time );
+    snprintf( filename, FILENAMELEN, "n%05d_t%09.6f.dat", istep/nwrite, time );
     if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
     for( int ix = 0; ix < nx; ix++ ){
         for( int iy = 0; iy < ny; iy++ ){
-            fprintf( fp, "%g %g %g %g %g\n"
+            fprintf( fp, "%+e %+e %+e %+e %+e\n"
                    , xx[ix], yy[iy], omgz[ix*ny+iy], phi[ix*ny+iy], rho[ix*ny+iy] );
         }
         fprintf( fp, "\n" );
@@ -217,9 +219,9 @@ void output_fields
     fclose( fp );
 
 
-    sprintf( filename, "phi_hat.dat" );
+    snprintf( filename, FILENAMELEN, "phi_hat.dat" );
     if( (fp=fopen(filename, "a+")) == NULL ) exit(1);
-    fprintf( fp, "%.10f %g\n", time, phi_max(phi) );
+    fprintf( fp, "%.10f %+e\n", time, phi_max(phi) );
     fclose( fp );
 }
 
@@ -240,7 +242,7 @@ static cureal phi_max
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void en_spectral
-    ( const int    istep
+    ( const int    /*istep*/
     , const cureal time
 ){
     cureal re, im;
@@ -250,7 +252,7 @@ void en_spectral
     cudaMemcpy( aphi,  dv_aphi,  sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
     cudaMemcpy( arho,  dv_arho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
 
-    sprintf( filename, "ky_ensp_t%09.6f.dat", time );
+    snprintf( filename, FILENAMELEN, "ky_ensp_t%09.6f.dat", time );
     if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
 
     for( int ikx = 0; ikx < nkx; ikx++ ){
@@ -284,12 +286,12 @@ void en_spectral
         }
     }
     for( int iky = 0; iky < nky; iky++ ) 
-        fprintf( fp, "%g %g %g %g\n", 
+        fprintf( fp, "%+e %+e %+e %+e\n", 
                  ky[iky], ensp_ao[iky]/nkx, ensp_ap[iky]/nkx, ensp_ar[iky]/nkx );
     fclose( fp );
 
 
-    sprintf( filename, "kx_ensp_t%09.6f.dat", time );
+    snprintf( filename, FILENAMELEN, "kx_ensp_t%09.6f.dat", time );
     if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
 
     for( int ikx = 0; ikx < nkx; ikx++ ){
@@ -323,12 +325,12 @@ void en_spectral
         }
     }
     for( int iky = 0; iky < nky; iky++ ) 
-        fprintf( fp, "%g %g %g %g\n", 
+        fprintf( fp, "%+e %+e %+e %+e\n", 
                  ky[iky], ensp_ao[iky]/nkx, ensp_ap[iky]/nkx, ensp_ar[iky]/nkx );
     fclose( fp );
 
 
-    sprintf( filename, "ks_t%09.6f.dat", time );
+    snprintf( filename, FILENAMELEN, "ks_t%09.6f.dat", time );
     if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
 
     for( int ikx = 0; ikx < nkx; ikx++ ){
@@ -345,7 +347,7 @@ void en_spectral
             im = arho[ikx*nky+iky].y;
             ar = sqrt( re*re + im*im ); 
 
-            fprintf( fp, "%g %g %g %g %g\n",
+            fprintf( fp, "%+e %+e %+e %+e %+e\n",
                      kx[ikx], ky[iky], ao, ap, ar );
         }
         fprintf( fp, "\n" );

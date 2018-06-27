@@ -106,16 +106,16 @@ void init_fft
 
     cudaMalloc( (void**)&dv_rtmp,  sizeof(cureal)*nx*ny   );
     cudaMalloc( (void**)&dv_ctmp1, sizeof(cucmplx)*nx*ncy );
-    cudaMalloc( (void**)&dv_ctmp2, sizeof(cucmplx)*nx*ny );
+    cudaMalloc( (void**)&dv_ctmp2, sizeof(cucmplx)*nx*ny  );
 
     #ifdef DBLE
         cufftPlan2d( &pr2c, nx, ny, CUFFT_D2Z );
         cufftPlan2d( &pc2r, nx, ny, CUFFT_Z2D );
-        cufftPlan1d( &pc2c, nx, CUFFT_Z2Z, 1 );
+        cufftPlan1d( &pc2c, nx, CUFFT_Z2Z, 1  );
     #else
         cufftPlan2d( &pr2c, nx, ny, CUFFT_R2C );
         cufftPlan2d( &pc2r, nx, ny, CUFFT_C2R );
-        cufftPlan1d( &pc2c, nx, CUFFT_C2C, 1 );
+        cufftPlan1d( &pc2c, nx, CUFFT_C2C, 1  );
     #endif
 }
 
@@ -126,7 +126,7 @@ void finish_fft
     cufftDestroy( pc2r );
     cufftDestroy( pc2c );
 
-    cudaFree( dv_rtmp );
+    cudaFree( dv_rtmp  );
     cudaFree( dv_ctmp1 );
     cudaFree( dv_ctmp2 );
 }

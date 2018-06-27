@@ -1,16 +1,19 @@
 #!/bin/bash
 
-INITIAL_RHO="1e-2 1e-1"
+NX="128"
+NY="256"
+
+INITIAL_RHO="1e-2"
 KAPPAS="0"
 RHO0_PRIME="1.0"
 
 for INITIAL_RHO in $INITIAL_RHO; do
   for KAPPA in $KAPPAS; do
-    FILE="alpha${RHO0_PRIME}_rho${INITIAL_RHO}_kappa${KAPPA}_nx256_ny512.ini"
+    FILE="alpha${RHO0_PRIME}_rho${INITIAL_RHO}_kappa${KAPPA}_nx${NX}_ny${NY}.ini"
 
     echo "[simulation]" > $FILE
-    echo "nx = 256" >> $FILE
-    echo "ny = 512" >> $FILE
+    echo "nx = $NX" >> $FILE
+    echo "ny = $NY" >> $FILE
     echo "" >> $FILE
     echo "eps = 1e-10" >> $FILE
     echo "time step = 1e-3" >> $FILE

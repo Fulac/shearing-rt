@@ -164,13 +164,13 @@ static void dissipate_rho
 
 __global__ static void eulerb
     (       cucmplx *fa0
-    , const cureal   diff
+    , const cureal   diss
     , const cureal   delt
 );
 
 __global__ static void bdf2
     (       cucmplx *fa0
-    , const cureal   diff
+    , const cureal   diss
     , const cureal   delt
 );
 
@@ -204,8 +204,7 @@ void initialize
 ){
     int ix ,iy;
     dim3 block( nthread );
-    dim3 cgrid1( (nkx*nky)+nthread-1/nthread );
-    dim3 cgrid2( ((nkx*nky-1)+nthread-1)/nthread );
+    dim3 cgrid( ((nkx*nky-1)+nthread-1)/nthread );
 
     for( ix = 0; ix <= nx; ix++ ) xx[ix] = ix * dx;
     for( iy = 0; iy <= ny; iy++ ) yy[iy] = iy * dy;
@@ -227,7 +226,7 @@ void initialize
 
     if( noise_flag ) init_dis();
 
-    neg_lapinv <<< cgrid2, block >>> ( dv_aomg0, dv_aphi );
+    neg_lapinv <<< cgrid, block >>> ( dv_aomg0, dv_aphi );
     get_vector( dv_aphi, dv_vx, dv_vy );
 }
 
@@ -247,11 +246,11 @@ static void init_dis
     srand( 10000 );
     for( int ikx = 0; ikx < nkx; ikx++ ){
         for( int iky = 0; iky < nky; iky++ ){
-            if( abs(kx[ikx]) <= 2 && abs(ky[iky]) <= 10 ){
+            if( fabs(kx[ikx]) <= 2 && fabs(ky[iky]) <= 10 ){
                 fk1[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)
-                                 / sqrt(nx*ny);
+                                 / sqrt(2 * 10);
                 fk2[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)
-                                 / sqrt(nx*ny);
+                                 / sqrt(2 * 10);
             }
             else{
                 fk1[ikx*nky+iky] = 0;
@@ -337,8 +336,8 @@ static cureal maxval
 
     for( int ix = 0; ix < nx; ix++ ){
         for( int iy = 0; iy < ny; iy++ )
-            if( maxvalue < fabs(field[ix*(ny+1)+iy]) )
-                maxvalue = fabs(field[ix*(ny+1)+iy]);
+            if( maxvalue < fabs(field[ix*ny+iy]) )
+                maxvalue = fabs(field[ix*ny+iy]);
     }
 
     return maxvalue;
@@ -437,7 +436,7 @@ static void advect_rho
                                         , delt );
             break;
         case 1:
-            if( nu < eps ){
+            if( kappa < eps ){
                 ab2 <<< cgrid, block >>> ( dv_arho0, dv_arho1
                                          , dv_drho0, dv_drho1
                                          , delt );
@@ -449,7 +448,7 @@ static void advect_rho
             }
             break;
         default:
-            if( nu < eps ){
+            if( kappa < eps ){
                 ab3 <<< cgrid, block >>> ( dv_arho0, dv_arho1
                                          , dv_drho0, dv_drho1, dv_drho2
                                          , delt );
@@ -604,24 +603,24 @@ static void dissipate_rho
 
 __global__ static void eulerb
     (       cucmplx *fa0
-    , const cureal   diff
+    , const cureal   diss
     , const cureal   delt
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if( tid < ct_nkx*ct_nky )
-        fa0[tid] = fa0[tid] / ( 1.0 + delt * diff * gb_kperp2_shear[tid] );
+        fa0[tid] = fa0[tid] / ( 1.0 + delt * diss * gb_kperp2_shear[tid] );
 }
 
 __global__ static void bdf2
     (       cucmplx *fa0
-    ,       cureal   diff
+    ,       cureal   diss
     , const cureal   delt
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if( tid < ct_nkx*ct_nky )
-        fa0[tid] = fa0[tid] / ( 1.0 + (2.0/3.0)*delt * diff * gb_kperp2_shear[tid] );
+        fa0[tid] = fa0[tid] / ( 1.0 + (2.0/3.0)*delt * diss * gb_kperp2_shear[tid] );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
