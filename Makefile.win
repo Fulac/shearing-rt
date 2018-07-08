@@ -21,8 +21,8 @@ ifeq ($(dble),on)
 endif
 
 SRCS = fft.cu  fields.cu  file_access.cu  fourier.cu  main.cu  shear.cu  time_integral.cu
-OBJS = $(SRCS:.cu=.o)
-DEPS = $(OBJS:.o=.d)
+OBJS = $(SRCS:.cu=.ob)
+DEPS = $(OBJS:.obj=.d)
 
 all: $(TARGET)
 
