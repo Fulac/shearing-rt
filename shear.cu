@@ -170,6 +170,7 @@ void finish_shear
     cudaFree( dv_jump );
     cudaFree( dv_ky_shift );
     cudaFree( dv_kperp2_shear );
+    cudaFree( dv_ikx_indexed );
     cudaFree( dv_rtmp );
     cudaFree( dv_ctmp1 );
     cudaFree( dv_ctmp2 );

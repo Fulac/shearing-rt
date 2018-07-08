@@ -171,6 +171,8 @@ static void deallocate_GPU
     cudaFree( dv_vy );
     cudaFree( dv_omgz );
     cudaFree( dv_phi );
+    cudaFree( dv_rho );
+
 
     cudaFree( dv_aomg0 );
     cudaFree( dv_aomg1 );

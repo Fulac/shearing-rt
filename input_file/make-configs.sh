@@ -1,11 +1,11 @@
 #!/bin/bash
 
-NX="128"
-NY="256"
+NX="256"
+NY="512"
 
 INITIAL_RHO="1e-2"
-KAPPAS="0"
-RHO0_PRIME="1.0"
+KAPPAS="1e-4"
+RHO0_PRIME="2.5"
 
 for INITIAL_RHO in $INITIAL_RHO; do
   for KAPPA in $KAPPAS; do
@@ -17,7 +17,7 @@ for INITIAL_RHO in $INITIAL_RHO; do
     echo "" >> $FILE
     echo "eps = 1e-10" >> $FILE
     echo "time step = 1e-3" >> $FILE
-    echo "time max = 30" >> $FILE
+    echo "time max = 50" >> $FILE
     echo "" >> $FILE
     echo "cuda thread num = 1024" >> $FILE
     echo "" >> $FILE

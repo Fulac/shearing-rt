@@ -209,10 +209,24 @@ void output_fields
 
     snprintf( filename, FILENAMELEN, "n%05d_t%09.6f.dat", istep/nwrite, time );
     if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
-    for( int ix = 0; ix < nx; ix++ ){
-        for( int iy = 0; iy < ny; iy++ ){
-            fprintf( fp, "%+e %+e %+e %+e %+e\n"
-                   , xx[ix], yy[iy], omgz[ix*ny+iy], phi[ix*ny+iy], rho[ix*ny+iy] );
+    for( int ix = 0; ix <= nx; ix++ ){
+        for( int iy = 0; iy <= ny; iy++ ){
+            if( ix < nx && iy < ny ){
+                fprintf( fp, "%+e %+e %+e %+e %+e\n"
+                       , xx[ix], yy[iy], omgz[ix*ny+iy], phi[ix*ny+iy], rho[ix*ny+iy] );
+            }
+            else if( ix == nx && iy == ny ){
+                fprintf( fp, "%+e %+e %+e %+e %+e\n"
+                       , xx[ix], yy[iy], omgz[0], phi[0], rho[0] );
+            }
+            else if( ix == nx ){
+                fprintf( fp, "%+e %+e %+e %+e %+e\n"
+                       , xx[ix], yy[iy], omgz[iy], phi[iy], rho[iy] );
+            }
+            else if( iy == ny ){
+                fprintf( fp, "%+e %+e %+e %+e %+e\n"
+                       , xx[ix], yy[iy], omgz[ix*ny], phi[ix*ny], rho[ix*ny] );
+            }
         }
         fprintf( fp, "\n" );
     }

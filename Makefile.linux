@@ -10,7 +10,7 @@ NVCCFLAGS      = -gencode arch=$(CUDAARCH),code=$(CUDACODE)
 NVCCLIBS       = -lcufft -lcurand
 
 ifeq ($(debug),on)
-  NVCCFLAGS += -DDEBUG -g -Xcompiler "-Wall -Wextra -Wno-long-long"
+  NVCCFLAGS += -DDEBUG -g -Xcompiler "-Wall -Wextra -Wno-long-long" -Xcompiler -rdynamic -lineinfo
 else
   NVCCFLAGS += -O3
 endif
