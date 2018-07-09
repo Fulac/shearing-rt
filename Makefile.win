@@ -13,7 +13,7 @@ IGNOREWARNING  = -Xcompiler "/wd 4819"
 ifeq ($(debug),on)
   NVCCFLAGS += -DDEBUG -g -Xcompiler "-Wall -Wextra -Wno-long-long"
 else
-  NVCCFLAGS += -Xcompiler "/O3"
+  NVCCFLAGS += -Xcompiler "/O2"
 endif
 
 ifeq ($(dble),on)
@@ -38,11 +38,11 @@ all: $(TARGET)
 	$(NVCC) -dc $(NVCCFLAGS) $(IGNOREWARNING) $<
 
 # main program
-$(TARGET): main.obj file_access.obj time_integral.obj shear.obj fields.obj fourier.obj fft.obj
+$(TARGET): $(OBJS)
 	$(NVCC) $^ -o $@ $(NVCCFLAGS) $(NVCCLIBS)
 
 clean:
-	rm -rf *.obj *.exp *.lib *~ \#*
+	rm -rf *.obj *.d *.exp *.lib *~ \#*
 
 distclean: clean
 	rm -rf $(TARGET)
