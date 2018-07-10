@@ -315,15 +315,15 @@ static void check_cfl
     get_vector_shear( dv_aphi, dv_vx, dv_vy );
 
     cudaMemcpy( ff, dv_vx, sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
-    cfl_vx = maxval( ff );
-    while( (cfl_vx*delt/dx) > 0.1 ){
+    cureal cfl_vx = maxval( ff ) * delt / dx;
+    while( cfl_vx > 0.1 ){
         delt /= 2.0;
         printf(": delt = %g\n", delt);
     }
 
     cudaMemcpy( ff, dv_vy, sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
-    cfl_vy = maxval( ff );
-    while( (cfl_vy*delt/dy) > 0.1 ){
+    cureal cfl_vy = maxval( ff ) * delt / dy;
+    while( cfl_vy > 0.1 ){
         delt /= 2.0;
         printf(": delt = %g\n", delt);
     }

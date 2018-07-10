@@ -11,7 +11,6 @@
 
 // プログラム全体で使用する変数を定義
 cureal delt, tmax;
-cureal cfl_vx, cfl_vy;
 cureal nu, kappa, sigma, rho0, rho0_prime, g, rho_eps1, rho_eps2, eps;
 __constant__ cureal ct_nu, ct_sigma, ct_rho0, ct_rho0_prime, ct_g, ct_kappa, ct_rho_eps2;
 cureal dx, dy;
