@@ -47,7 +47,5 @@ int main
     finish_fields();
     finish_four();
 
-    cudaDeviceReset();
-
     return 0;
 }
