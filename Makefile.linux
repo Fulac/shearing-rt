@@ -42,7 +42,7 @@ $(TARGET): $(OBJS)
 	$(NVCC) $^ -o $@ $(NVCCFLAGS) $(NVCCLIBS)
 
 clean:
-	rm -rf *.o *.d *.exp *.lib *~ \#*
+	rm -rf *.o *.d *~ \#*
 
 distclean: clean
 	rm -rf $(TARGET)
