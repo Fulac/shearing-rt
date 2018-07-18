@@ -323,7 +323,7 @@ static void check_cfl
 
     cudaMemcpy( ff, dv_vy, sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
     cureal cfl_vy = maxval( ff );
-    while( (cfl_vy * delt /dy) > 0.1 ){
+    while( (cfl_vy * delt / dy) > 0.1 ){
         delt /= 2.0;
         printf(": delt = %g\n", delt);
     }
