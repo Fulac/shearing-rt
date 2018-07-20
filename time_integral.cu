@@ -87,7 +87,7 @@ static void advect_omg
     ( const int istep
 );
 
-__global__ static void add_rho
+__global__ static void add_ddxrho
     (       cucmplx *dadt0
     , const cucmplx *arho1
 );
@@ -98,7 +98,7 @@ static void advect_rho
     ( const int istep
 );
 
-__global__ static void add_phi
+__global__ static void add_ddxphi
     (       cucmplx *dadt0
     , const cucmplx *aphi
 );
@@ -369,7 +369,7 @@ static void advect_omg
     poisson_bracket_shear( dv_vx, dv_vy, dv_aomg1, dv_rtmp );
     negative <<< rgrid, block >>> ( dv_rtmp );
     xtok( dv_rtmp, dv_domg0 );
-    add_rho <<< cgrid, block >>> ( dv_domg0, dv_arho1 );
+    add_ddxrho <<< cgrid, block >>> ( dv_domg0, dv_arho1 );
 
     switch( istep ){
         case 0:
@@ -404,7 +404,7 @@ static void advect_omg
     }
 }
 
-__global__ static void add_rho
+__global__ static void add_ddxrho
     (       cucmplx *dadt0
     , const cucmplx *arho1
 ){
@@ -427,7 +427,7 @@ static void advect_rho
     poisson_bracket_shear( dv_vx, dv_vy, dv_arho1, dv_rtmp );
     negative <<< rgrid, block >>> ( dv_rtmp );
     xtok( dv_rtmp, dv_drho0 );
-    add_phi <<< cgrid, block >>> ( dv_drho0, dv_aphi );
+    add_ddxphi <<< cgrid, block >>> ( dv_drho0, dv_aphi );
 
     switch( istep ){
         case 0:
@@ -462,7 +462,7 @@ static void advect_rho
     }
 }
 
-__global__ static void add_phi
+__global__ static void add_ddxphi
     (       cucmplx *dadt0
     , const cucmplx *aphi
 ){
