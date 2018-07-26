@@ -10,6 +10,7 @@
 #include "fft.h"
 #include "fourier.h"
 #include "fields.h"
+#include "file_access.h"
 
 /* ---------------------------------------------------------------------------------------------- */
 /*  Global Variables Definition                                                                   */
@@ -190,6 +191,8 @@ void update_shear
 
     cudaMemcpy( &jump_flag, dv_jump+1, sizeof(int), cudaMemcpyDeviceToHost );
     if( jump_flag != 0 ){
+        /* k_data( 0 ); */
+
         cudaMemcpy( dv_ctmp1, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
         shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aomg0 );
         cudaMemcpy( dv_ctmp1, dv_aomg1, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
@@ -220,6 +223,8 @@ void update_shear
 
         cudaMemcpy( dv_ctmp1, dv_aphi, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
         shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aphi );
+
+        /* k_data( 1 ); */
     }
 
     get_kperp2_shear <<< cgrid, block >>> ();

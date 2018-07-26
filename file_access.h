@@ -27,4 +27,8 @@ void en_spectral
     , cureal time
 );
 
+void k_data
+    ( int flag
+);
+
 #endif

@@ -246,7 +246,7 @@ static void init_dis
     srand( 10000 );
     for( int ikx = 0; ikx < nkx; ikx++ ){
         for( int iky = 0; iky < nky; iky++ ){
-            if( fabs(kx[ikx]) <= 2 && fabs(ky[iky]) <= 10 ){
+            if( fabs(kx[ikx]) <= 2 && fabs(ky[iky]) != 0 && fabs(ky[iky]) <= 10 ){
                 fk1[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)
                                  / sqrt(2 * 10);
                 fk2[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)

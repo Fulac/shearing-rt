@@ -38,6 +38,7 @@ namespace{
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
 /* ---------------------------------------------------------------------------------------------- */
 /*  Function Prototype                                                                            */
 /* ---------------------------------------------------------------------------------------------- */
@@ -83,6 +84,10 @@ void en_spectral
 );
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void k_data
+    ( const int flag
+);
 
 
 /* ---------------------------------------------------------------------------------------------- */
@@ -363,6 +368,35 @@ void en_spectral
 
             fprintf( fp, "%+e %+e %+e %+e %+e\n",
                      kx[ikx], ky[iky], ao, ap, ar );
+        }
+        fprintf( fp, "\n" );
+    }
+    fclose( fp );
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void k_data
+    ( const int flag
+){
+    cudaMemcpy( aomgz, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+    cudaMemcpy( aphi,  dv_aphi,  sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+    cudaMemcpy( arho,  dv_arho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+
+    snprintf( filename, FILENAMELEN, "k_data_f%d.dat", flag );
+    if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
+
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", arho[ikx*nky+iky].x );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "\n" );
+    fprintf( fp, "\n" );
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", arho[ikx*nky+iky].y );
         }
         fprintf( fp, "\n" );
     }
