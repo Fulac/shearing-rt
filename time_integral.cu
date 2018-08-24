@@ -14,6 +14,8 @@
 #include "fourier.h"
 #include "shear.h"
 
+#define RANDSEED 4000
+
 /* ---------------------------------------------------------------------------------------------- */
 /*  Global Variables Definition                                                                   */
 /* ---------------------------------------------------------------------------------------------- */
@@ -71,8 +73,13 @@ static void check_cfl
     ( cureal &delt
 );
 
-static cureal maxval
-    ( cureal *field
+cureal maxvalue_search
+    ( cureal *dv_field
+);
+
+__global__ static void pl_max_search
+    ( cureal *dv_field
+    , cureal *dv_output
 );
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -236,14 +243,14 @@ static void init_dis
     cureal *fk1, *fk2;
     cureal *dv_dis1, *dv_dis2;
     dim3 block( nthread );
-    dim3 cgrid( (nkx*nky)+nthread-1/nthread );
+    dim3 cgrid( (nkx*nky+nthread-1)/nthread );
 
     fk1 = new cureal [nkx*nky];
     fk2 = new cureal [nkx*nky];
     cudaMalloc( (void**)&dv_dis1, sizeof(cureal) * nkx *nky );
     cudaMalloc( (void**)&dv_dis2, sizeof(cureal) * nkx *nky );
 
-    srand( 2000 );
+    srand( RANDSEED );
     for( int ikx = 0; ikx < nkx; ikx++ ){
         for( int iky = 0; iky < nky; iky++ ){
             // 複素共役を保たない
@@ -322,33 +329,93 @@ static void check_cfl
     neg_lapinv_shear <<< cgrid, block >>> ( dv_aomg0, dv_aphi );
     get_vector_shear( dv_aphi, dv_vx, dv_vy );
 
-    cudaMemcpy( ff, dv_vx, sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
-    cureal cfl_vx = maxval( ff );
+    cureal cfl_vx = max_search( dv_vx );
     while( (cfl_vx * delt / dx) > 0.1 ){
         delt /= 2.0;
         printf(": delt = %g\n", delt);
     }
 
-    cudaMemcpy( ff, dv_vy, sizeof(cureal)*nx*ny, cudaMemcpyDeviceToHost );
-    cureal cfl_vy = maxval( ff );
+    cureal cfl_vy = max_search( dv_vy );
     while( (cfl_vy * delt / dy) > 0.1 ){
         delt /= 2.0;
         printf(": delt = %g\n", delt);
     }
 }
 
-static cureal maxval
-    ( cureal *field
+cureal maxvalue_search
+    ( cureal *dv_field
 ){
-    cureal maxvalue = 0;
+    int threads = nthread;
+    int blocks  = (nx*ny+2*nthread-1) / (2*nthread); 
 
-    for( int ix = 0; ix < nx; ix++ ){
-        for( int iy = 0; iy < ny; iy++ )
-            if( maxvalue < fabs(field[ix*ny+iy]) )
-                maxvalue = fabs(field[ix*ny+iy]);
-    }
+    pl_max_search <<< blocks, threads, sizeof(cureal)*threads >>> ( dv_field, dv_rtmp );
+    cudaMemcpy( ff, dv_rtmp, sizeof(cureal)*blocks, cudaMemcpyDeviceToHost );
+
+    cureal maxvalue = 0;
+    for( int i = 0; i < blocks; i++ ) if( maxvalue < ff[i] ) maxvalue = ff[i];
 
     return maxvalue;
+}
+
+__global__ static void pl_max_search
+    ( cureal *dv_field
+    , cureal *dv_output
+){
+    int tid = threadIdx.x;
+    int  id = blockIdx.x * (blockDim.x*2) + threadIdx.x;
+    extern __shared__ cureal sh_data[];
+
+    sh_data[tid] = fabs( dv_field[id           ] );
+    cureal val   = fabs( dv_field[id+blockDim.x] );
+
+    sh_data[tid] = ( sh_data[tid] > val ) ? sh_data[tid] : val;
+    __syncthreads();
+
+    if( blockDim.x >= 1024 && tid < 512 ){
+        sh_data[tid] = ( sh_data[tid] > sh_data[tid+512] ) ? sh_data[tid] : sh_data[tid+512];
+        __syncthreads();
+    }
+    if( blockDim.x >= 512 && tid < 256 ){
+        sh_data[tid] = ( sh_data[tid] > sh_data[tid+256] ) ? sh_data[tid] : sh_data[tid+256];
+        __syncthreads();
+    }
+    if( blockDim.x >= 256 && tid < 128 ){
+        sh_data[tid] = ( sh_data[tid] > sh_data[tid+128] ) ? sh_data[tid] : sh_data[tid+128];
+        __syncthreads();
+    }
+    if( blockDim.x >= 128 && tid < 64){
+        sh_data[tid] = ( sh_data[tid] > sh_data[tid+64] ) ? sh_data[tid] : sh_data[tid+64];
+        __syncthreads();
+    }
+
+    if( tid < 32 ){
+        if( blockDim.x >= 64 ){
+            sh_data[tid] = ( sh_data[tid] > sh_data[tid+32] ) ? sh_data[tid] : sh_data[tid+32];
+            __syncthreads();
+        }
+        if( blockDim.x >= 32 ){
+            sh_data[tid] = ( sh_data[tid] > sh_data[tid+16] ) ? sh_data[tid] : sh_data[tid+16];
+            __syncthreads();
+        }
+        if( blockDim.x >= 16 ){
+            sh_data[tid] = ( sh_data[tid] > sh_data[tid+ 8] ) ? sh_data[tid] : sh_data[tid+ 8];
+            __syncthreads();
+        }
+        if( blockDim.x >=  8 ){
+            sh_data[tid] = ( sh_data[tid] > sh_data[tid+ 4] ) ? sh_data[tid] : sh_data[tid+ 4];
+            __syncthreads();
+        }
+        if( blockDim.x >=  4 ){
+            sh_data[tid] = ( sh_data[tid] > sh_data[tid+ 2] ) ? sh_data[tid] : sh_data[tid+ 2];
+            __syncthreads();
+        }
+        if( blockDim.x >=  2 ){
+            sh_data[tid] = ( sh_data[tid] > sh_data[tid+ 1] ) ? sh_data[tid] : sh_data[tid+ 1];
+            __syncthreads();
+        }
+    }
+
+    if( tid == 0 ) dv_output[blockIdx.x] = sh_data[0];
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -15,6 +15,10 @@ void initialize
     ( void
 );
 
+cureal max_search
+    ( cureal *dv_field
+);
+
 void time_advance
     ( int    &istep
     , cureal &time
