@@ -329,13 +329,13 @@ static void check_cfl
     neg_lapinv_shear <<< cgrid, block >>> ( dv_aomg0, dv_aphi );
     get_vector_shear( dv_aphi, dv_vx, dv_vy );
 
-    cureal cfl_vx = max_search( dv_vx );
+    cureal cfl_vx = maxvalue_search( dv_vx );
     while( (cfl_vx * delt / dx) > 0.1 ){
         delt /= 2.0;
         printf(": delt = %g\n", delt);
     }
 
-    cureal cfl_vy = max_search( dv_vy );
+    cureal cfl_vy = maxvalue_search( dv_vy );
     while( (cfl_vy * delt / dy) > 0.1 ){
         delt /= 2.0;
         printf(": delt = %g\n", delt);

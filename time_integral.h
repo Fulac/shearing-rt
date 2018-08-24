@@ -15,7 +15,7 @@ void initialize
     ( void
 );
 
-cureal max_search
+cureal maxvalue_search
     ( cureal *dv_field
 );
 
