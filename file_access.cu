@@ -26,7 +26,7 @@
 // プログラム全体で使用する変数を定義
 bool   write_fields;
 int    nwrite;
-cureal otime, next_otime;
+cureal output_time, next_output_time;
 
 // このファイル内でのみ使用するグローバル変数を定義
 namespace{
@@ -72,8 +72,10 @@ void output_fields
     , const cureal time
 );
 
-static cureal max_value
-    ( const cureal *phi
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void output_maxamp
+    ( const cureal time
 );
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -88,6 +90,8 @@ void en_spectral
 void k_data
     ( const int flag
 );
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 /* ---------------------------------------------------------------------------------------------- */
@@ -118,7 +122,7 @@ void input_data
     nthread = readEntry<cureal>( pt, "simulation", "cuda thread num", 1024 );
 
     // output parameters
-    otime        = readEntry<cureal>( pt, "output", "output time step",  1.0 );
+    output_time  = readEntry<cureal>( pt, "output", "output time step",  1.0 );
     nwrite       = readEntry<int>(    pt, "output", "output loop count", 100 );
     write_fields = readEntry<bool>(   pt, "output", "write output",      true );
 
@@ -162,7 +166,7 @@ T readEntry
 void init_output
     ( void 
 ){
-    next_otime = otime;
+    next_output_time = output_time;
     filename = new char[FILENAMELEN];
 
     aomgz = new cucmplx[nkx*nky];
@@ -236,26 +240,31 @@ void output_fields
         fprintf( fp, "\n" );
     }
     fclose( fp );
+}
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void output_maxamp
+    ( const cureal time
+){
+    if( sigma ){
+        ktox_shear( dv_aphi,  dv_phi );
+        ktox_shear( dv_arho0, dv_rho );
+    }
+    else{
+        ktox( dv_aphi,  dv_phi );
+        ktox( dv_arho0, dv_rho );
+    }
 
     snprintf( filename, FILENAMELEN, "phi_hat.dat" );
     if( (fp=fopen(filename, "a+")) == NULL ) exit(1);
-    fprintf( fp, "%.10f %+e\n", time, max_value(phi) );
+    fprintf( fp, "%.10f %+e\n", time, maxvalue_search(dv_phi) );
     fclose( fp );
-}
 
-static cureal max_value
-    ( const cureal *phi
-){
-    cureal mval = 0;
-
-    for( int ix = 0; ix < nx; ix++ ){
-        for( int iy = 0; iy < ny; iy++ ){
-            if( mval < fabs(phi[ix*ny+iy]) ) mval = fabs(phi[ix*ny+iy]);
-        }
-    }
-
-    return mval;
+    snprintf( filename, FILENAMELEN, "rho_hat.dat" );
+    if( (fp=fopen(filename, "a+")) == NULL ) exit(1);
+    fprintf( fp, "%.10f %+e\n", time, maxvalue_search(dv_rho) );
+    fclose( fp );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

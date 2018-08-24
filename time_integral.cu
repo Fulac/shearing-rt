@@ -14,7 +14,7 @@
 #include "fourier.h"
 #include "shear.h"
 
-#define RANDSEED 4000
+#define RANDSEED 2000
 
 /* ---------------------------------------------------------------------------------------------- */
 /*  Global Variables Definition                                                                   */

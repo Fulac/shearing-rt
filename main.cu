@@ -13,6 +13,9 @@ int main
     int istep = 0;
     cureal time = 0;
 
+    cureal output_maxamp_time = 0.05;
+    cureal next_output_maxamp_time = output_maxamp_time;
+
     input_data();
 
     dx = Lx/nx, dy = Ly/ny;
@@ -27,19 +30,23 @@ int main
 
     if( write_fields ){
         output_fields( istep, time );
+        output_maxamp( time );
         en_spectral( istep, time );
     }
 
     while( time <= tmax ){
         time_advance( istep, time );
 
-        if( write_fields && time > next_otime ){
-            next_otime += otime;
+        if( write_fields && time > next_output_time ){
+            next_output_time += output_time;
             output_fields( istep, time );
             en_spectral( istep, time );
         }
+        if( write_fields && time > next_output_maxamp_time ){
+            next_output_maxamp_time += output_maxamp_time;
+            output_maxamp( time );
+        }
     }
-
 
     finish_output();
     finish_shear();
