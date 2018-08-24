@@ -145,17 +145,17 @@ static void allocate_GPU
     cudaMemset( dv_domg2, 0, sizeof(cucmplx) * nn );
 
     cudaMalloc( (void**)&dv_arho0, sizeof(cucmplx) * nn );
-    cudaMemset( dv_aomg0, 0, sizeof(cucmplx) * nn );
+    cudaMemset( dv_arho0, 0, sizeof(cucmplx) * nn );
     cudaMalloc( (void**)&dv_arho1, sizeof(cucmplx) * nn );
-    cudaMemset( dv_aomg1, 0, sizeof(cucmplx) * nn );
+    cudaMemset( dv_arho1, 0, sizeof(cucmplx) * nn );
     cudaMalloc( (void**)&dv_arho2, sizeof(cucmplx) * nn );
-    cudaMemset( dv_aomg2, 0, sizeof(cucmplx) * nn );
+    cudaMemset( dv_arho2, 0, sizeof(cucmplx) * nn );
     cudaMalloc( (void**)&dv_drho0, sizeof(cucmplx) * nn );
-    cudaMemset( dv_domg0, 0, sizeof(cucmplx) * nn );
+    cudaMemset( dv_drho0, 0, sizeof(cucmplx) * nn );
     cudaMalloc( (void**)&dv_drho1, sizeof(cucmplx) * nn );
-    cudaMemset( dv_domg1, 0, sizeof(cucmplx) * nn );
+    cudaMemset( dv_drho1, 0, sizeof(cucmplx) * nn );
     cudaMalloc( (void**)&dv_drho2, sizeof(cucmplx) * nn );
-    cudaMemset( dv_domg2, 0, sizeof(cucmplx) * nn );
+    cudaMemset( dv_drho2, 0, sizeof(cucmplx) * nn );
 
     cudaMalloc( (void**)&dv_aphi, sizeof(cucmplx) * nn );
     cudaMemset( dv_aphi, 0, sizeof(cucmplx) * nn );

@@ -243,9 +243,17 @@ static void init_dis
     cudaMalloc( (void**)&dv_dis1, sizeof(cureal) * nkx *nky );
     cudaMalloc( (void**)&dv_dis2, sizeof(cureal) * nkx *nky );
 
-    srand( 10000 );
+    srand( 2000 );
     for( int ikx = 0; ikx < nkx; ikx++ ){
         for( int iky = 0; iky < nky; iky++ ){
+            // 複素共役を保たない
+            /* if( fabs(kx[ikx]) <= 2 && fabs(ky[iky]) <= 10 ){ */
+            /*     fk1[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0) */
+            /*                      / sqrt(2 * 10); */
+            /*     fk2[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0) */
+            /*                      / sqrt(2 * 10); */
+            /* } */
+            // 複素共役を保つ
             if( fabs(kx[ikx]) <= 2 && fabs(ky[iky]) != 0 && fabs(ky[iky]) <= 10 ){
                 fk1[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)
                                  / sqrt(2 * 10);

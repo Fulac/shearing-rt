@@ -72,7 +72,7 @@ void output_fields
     , const cureal time
 );
 
-static cureal phi_max
+static cureal max_value
     ( const cureal *phi
 );
 
@@ -240,22 +240,22 @@ void output_fields
 
     snprintf( filename, FILENAMELEN, "phi_hat.dat" );
     if( (fp=fopen(filename, "a+")) == NULL ) exit(1);
-    fprintf( fp, "%.10f %+e\n", time, phi_max(phi) );
+    fprintf( fp, "%.10f %+e\n", time, max_value(phi) );
     fclose( fp );
 }
 
-static cureal phi_max
+static cureal max_value
     ( const cureal *phi
 ){
-    cureal max_val = 0;
+    cureal mval = 0;
 
     for( int ix = 0; ix < nx; ix++ ){
         for( int iy = 0; iy < ny; iy++ ){
-            if( max_val < fabs(phi[ix*ny+iy]) ) max_val = fabs(phi[ix*ny+iy]);
+            if( mval < fabs(phi[ix*ny+iy]) ) mval = fabs(phi[ix*ny+iy]);
         }
     }
 
-    return max_val;
+    return mval;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
