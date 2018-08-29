@@ -13,7 +13,7 @@ int main
     int istep = 0;
     cureal time = 0;
 
-    cureal output_maxamp_time = 0.05;
+    cureal output_maxamp_time = 0.1;
     cureal next_output_maxamp_time = output_maxamp_time;
 
     input_data();

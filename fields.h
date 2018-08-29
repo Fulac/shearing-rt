@@ -2,7 +2,7 @@
 #define __FIELDS_H__
 
 extern cureal delt, tmax;
-extern cureal nu, kappa, sigma, rho0, rho0_prime, g, rho_eps1, rho_eps2, eps;
+extern cureal nu, kappa, sigma, rho0, rho0_prime, g, rho_eps1, rho_eps2;
 extern __constant__ cureal ct_nu, ct_rho0, ct_rho0_prime, ct_g, ct_sigma, ct_kappa, ct_rho_eps2;
 extern cureal dx, dy;
 

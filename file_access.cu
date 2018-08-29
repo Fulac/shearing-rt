@@ -112,14 +112,13 @@ void input_data
     }
 
     // simulation parameters
-    nx = readEntry<int>( pt, "simulation", "nx",  512 );
-    ny = readEntry<int>( pt, "simulation", "ny", 1024 );
+    nx      = readEntry<int>( pt, "simulation", "nx",  512 );
+    ny      = readEntry<int>( pt, "simulation", "ny", 1024 );
+    nthread = readEntry<int>( pt, "simulation", "cuda thread num", 1024 );
     Lx      = readEntry<cureal>( pt, "simulation", "Lx", M_PI );
     Ly      = readEntry<cureal>( pt, "simulation", "Ly", M_PI );
-    eps     = readEntry<cureal>( pt, "simulation", "eps", 1e-10 );
     delt    = readEntry<cureal>( pt, "simulation", "time step", 1e-3 );
     tmax    = readEntry<cureal>( pt, "simulation", "time max", 30 );
-    nthread = readEntry<cureal>( pt, "simulation", "cuda thread num", 1024 );
 
     // output parameters
     output_time  = readEntry<cureal>( pt, "output", "output time step",  1.0 );
@@ -135,7 +134,7 @@ void input_data
     rho0_prime = readEntry<cureal>( pt, "problem", "rho0_prime",    1.0 );
     rho0       = readEntry<cureal>( pt, "problem", "rho0",          1.0 );
     rho_eps1   = readEntry<cureal>( pt, "problem", "rho_eps1",      1e-2 );
-    rho_eps2   = readEntry<cureal>( pt, "problem", "rho_eps2",      rho_eps1/2.0 );
+    rho_eps2   = rho_eps1 / 2.0;
 }
 
 template <class T>

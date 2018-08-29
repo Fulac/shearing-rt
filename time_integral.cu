@@ -25,6 +25,8 @@ bool noise_flag; // 初期値に擾乱を入れる (true) or 入れない (false
 
 // このファイル内でのみ使用するグローバル変数を定義
 namespace{
+    cureal eps;
+
     cureal  *dv_rtmp, *ff;
     cucmplx *dv_ctmp;
 }
@@ -71,6 +73,8 @@ void time_advance
 
 static void check_cfl
     ( cureal &delt
+    , cureal  time
+    , int     istep
 );
 
 cureal maxvalue_search
@@ -191,6 +195,8 @@ __global__ static void bdf2
 void init_tint
     ( void
 ){
+    eps = 1e-10;
+
     cudaMalloc( (void**)&dv_rtmp, sizeof(cureal)*nx*ny );
     cudaMalloc( (void**)&dv_ctmp, sizeof(cucmplx)*nkx*nky );
     ff = new cureal [nx*ny];
@@ -303,7 +309,7 @@ void time_advance
     ( int    &istep
     , cureal &time
 ){
-    check_cfl( delt );
+    check_cfl( delt, time, istep );
     renew_fields();
 
     advect_omg( istep );
@@ -322,6 +328,8 @@ void time_advance
 
 static void check_cfl
     ( cureal &delt
+    , cureal  time
+    , int     istep
 ){
     dim3 block( nthread );
     dim3 cgrid( ((nkx*nky-1)+nthread-1)/nthread );
@@ -332,13 +340,15 @@ static void check_cfl
     cureal cfl_vx = maxvalue_search( dv_vx );
     while( (cfl_vx * delt / dx) > 0.1 ){
         delt /= 2.0;
-        printf(": delt = %g\n", delt);
+        printf( "istep = %d, time = %g, cfl_vx = %g, delt = %g\n"
+                , istep, time, cfl_vx, delt );
     }
 
     cureal cfl_vy = maxvalue_search( dv_vy );
     while( (cfl_vy * delt / dy) > 0.1 ){
         delt /= 2.0;
-        printf(": delt = %g\n", delt);
+        printf( "istep = %d, time = %g, cfl_vy = %g, delt = %g\n"
+                , istep, time, cfl_vy, delt );
     }
 }
 
