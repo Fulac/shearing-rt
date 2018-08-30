@@ -2,6 +2,7 @@
 #define __TINT_H__
 
 extern bool noise_flag;
+extern cureal cfl_num;
 
 void init_tint
     ( void

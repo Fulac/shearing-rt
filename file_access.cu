@@ -119,6 +119,7 @@ void input_data
     Ly      = readEntry<cureal>( pt, "simulation", "Ly", M_PI );
     delt    = readEntry<cureal>( pt, "simulation", "time step", 1e-3 );
     tmax    = readEntry<cureal>( pt, "simulation", "time max", 30 );
+    cfl_num = readEntry<cureal>( pt, "simulation", "cfl number", 5e-3 );
 
     // output parameters
     output_time  = readEntry<cureal>( pt, "output", "output time step",  1.0 );
@@ -323,37 +324,37 @@ void en_spectral
 
     for( int ikx = 0; ikx < nkx; ikx++ ){
         for( int iky = 0; iky < nky; iky++ ){
-            if( ikx == 0 ){
+            if( iky == 0 ){
                 re = aomgz[ikx*nky+iky].x;
                 im = aomgz[ikx*nky+iky].y;
-                ensp_ao[iky] = re*re + im*im;
+                ensp_ao[ikx] = re*re + im*im;
 
                 re = aphi[ikx*nky+iky].x;
                 im = aphi[ikx*nky+iky].y;
-                ensp_ap[iky] = re*re + im*im; 
+                ensp_ap[ikx] = re*re + im*im; 
 
                 re = arho[ikx*nky+iky].x;
                 im = arho[ikx*nky+iky].y;
-                ensp_ar[iky] = re*re + im*im; 
+                ensp_ar[ikx] = re*re + im*im; 
             }
             else{
                 re  = aomgz[ikx*nky+iky].x;
                 im  = aomgz[ikx*nky+iky].y;
-                ensp_ao[iky] += re*re + im*im;
+                ensp_ao[ikx] += re*re + im*im;
 
                 re  = aphi[ikx*nky+iky].x;
                 im  = aphi[ikx*nky+iky].y;
-                ensp_ap[iky] += re*re + im*im; 
+                ensp_ap[ikx] += re*re + im*im; 
 
                 re  = arho[ikx*nky+iky].x;
                 im  = arho[ikx*nky+iky].y;
-                ensp_ar[iky] += re*re + im*im; 
+                ensp_ar[ikx] += re*re + im*im; 
             }
         }
     }
-    for( int iky = 0; iky < nky; iky++ ) 
+    for( int ikx = 0; ikx < nkx; ikx++ ) 
         fprintf( fp, "%+e %+e %+e %+e\n", 
-                 ky[iky], ensp_ao[iky]/nkx, ensp_ap[iky]/nkx, ensp_ar[iky]/nkx );
+                 ky[ikx], ensp_ao[ikx]/nky, ensp_ap[ikx]/nky, ensp_ar[ikx]/nky );
     fclose( fp );
 
 

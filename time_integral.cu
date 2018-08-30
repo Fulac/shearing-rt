@@ -22,12 +22,14 @@
 
 // プログラム全体で使用する変数を定義
 bool noise_flag; // 初期値に擾乱を入れる (true) or 入れない (false)
+cureal cfl_num;
 
 // このファイル内でのみ使用するグローバル変数を定義
 namespace{
     cureal eps;
 
     cureal  *dv_rtmp, *ff;
+    cureal  *dv_v0, *dv_vmax;
     cucmplx *dv_ctmp;
 }
 
@@ -75,6 +77,11 @@ static void check_cfl
     ( cureal &delt
     , cureal  time
     , int     istep
+);
+
+__global__ static void add_v0
+    ( cureal *dv_vx
+    , cureal *dv_out
 );
 
 cureal maxvalue_search
@@ -199,6 +206,8 @@ void init_tint
 
     cudaMalloc( (void**)&dv_rtmp, sizeof(cureal)*nx*ny );
     cudaMalloc( (void**)&dv_ctmp, sizeof(cucmplx)*nkx*nky );
+    cudaMalloc( (void**)&dv_vmax, sizeof(cureal)*nx*ny/2.0 );
+    cudaMalloc( (void**)&dv_v0,   sizeof(cureal)*ny );
     ff = new cureal [nx*ny];
 }
 
@@ -207,6 +216,8 @@ void finish_tint
 ){
     cudaFree( dv_rtmp );
     cudaFree( dv_ctmp );
+    cudaFree( dv_vmax );
+    cudaFree( dv_v0 );
     delete[] ff;
 }
 
@@ -331,35 +342,63 @@ static void check_cfl
     , cureal  time
     , int     istep
 ){
-    dim3 block( nthread );
-    dim3 cgrid( ((nkx*nky-1)+nthread-1)/nthread );
+    dim3 threads( nthread );
+    dim3 cblocks( (nkx*nky+nthread-1)/nthread );
 
-    neg_lapinv_shear <<< cgrid, block >>> ( dv_aomg0, dv_aphi );
+    neg_lapinv_shear <<< cblocks, threads >>> ( dv_aomg0, dv_aphi );
     get_vector_shear( dv_aphi, dv_vx, dv_vy );
 
-    cureal cfl_vx = maxvalue_search( dv_vx );
-    while( (cfl_vx * delt / dx) > 0.1 ){
+    dim3 rblocks( (nx*ny+nthread-1)/nthread );
+    cureal cfl_vec;
+
+    add_v0 <<< rblocks, threads >>> ( dv_vx, dv_rtmp );
+    cfl_vec = maxvalue_search( dv_rtmp );
+    while( (cfl_vec * delt / dx) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_vx = %g, delt = %g\n"
-                , istep, time, cfl_vx, delt );
+                , istep, time, cfl_vec, delt );
     }
 
-    cureal cfl_vy = maxvalue_search( dv_vy );
-    while( (cfl_vy * delt / dy) > 0.1 ){
+    cfl_vec = maxvalue_search( dv_vy );
+    while( (cfl_vec * delt / dy) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_vy = %g, delt = %g\n"
-                , istep, time, cfl_vy, delt );
+                , istep, time, cfl_vec, delt );
     }
+
+    cfl_vec = rho0 / g;
+    while( (cfl_vec * delt / dx) > cfl_num ){
+        delt /= 2.0;
+        printf( "istep = %d, time = %g, cfl_(rho0/g) = %g, delt = %g\n"
+                , istep, time, cfl_vec, delt );
+    }
+
+    cfl_vec = rho0_prime;
+    while( (cfl_vec * delt / dx) > cfl_num ){
+        delt /= 2.0;
+        printf( "istep = %d, time = %g, cfl_rho0_prime = %g, delt = %g\n"
+                , istep, time, cfl_vec, delt );
+    }
+}
+
+__global__ static void add_v0
+    ( cureal *dv_vx
+    , cureal *dv_out
+){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int yid = idx%ct_ny;
+
+    if( idx < ct_nx * ct_ny ) dv_out[idx] = dv_vx[idx] + ct_sigma * gb_yy[yid];
 }
 
 cureal maxvalue_search
     ( cureal *dv_field
 ){
     int threads = nthread;
-    int blocks  = (nx*ny+2*nthread-1) / (2*nthread); 
+    int blocks  = (nx*ny+(2*nthread)-1) / (2*nthread); 
 
-    pl_max_search <<< blocks, threads, sizeof(cureal)*threads >>> ( dv_field, dv_rtmp );
-    cudaMemcpy( ff, dv_rtmp, sizeof(cureal)*blocks, cudaMemcpyDeviceToHost );
+    pl_max_search <<< blocks, threads, sizeof(cureal)*threads >>> ( dv_field, dv_vmax );
+    cudaMemcpy( ff, dv_vmax, sizeof(cureal)*blocks, cudaMemcpyDeviceToHost );
 
     cureal maxvalue = 0;
     for( int i = 0; i < blocks; i++ ) if( maxvalue < ff[i] ) maxvalue = ff[i];

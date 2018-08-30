@@ -1,3 +1,6 @@
+// C headers
+#include "cstdio"
+
 // Local headers
 #include "cmplx.h"
 #include "fft.h"
@@ -27,6 +30,8 @@ int main
     init_output();
 
     initialize();
+
+    printf( "yy[ny] = %lf\n", yy[ny] );
 
     if( write_fields ){
         output_fields( istep, time );
