@@ -27,6 +27,7 @@ for INITIAL_RHO in $INITIAL_RHO; do
     echo "" >> $FILE
     echo "[problem]" >> $FILE
     echo "initial noise = true" >> $FILE
+    echo "linear eq. = false" >> $FILE
     echo "nu = 1e-3" >> $FILE
     echo "kappa = $KAPPA" >> $FILE
     echo "" >> $FILE

@@ -51,6 +51,8 @@ void ktox_shear
 
 void update_shear
     ( const cureal delt
+    , const cureal time
+    , const int    istep
 );
 
 #endif

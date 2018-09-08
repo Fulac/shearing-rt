@@ -12,15 +12,19 @@
 #include "fields.h"
 #include "file_access.h"
 
+#define EPS 1e-4
+
 /* ---------------------------------------------------------------------------------------------- */
 /*  Global Variables Definition                                                                   */
 /* ---------------------------------------------------------------------------------------------- */
 
 // このファイル内でのみ使用するグローバル変数を定義
 namespace{
-    int *ikx_indexed, *dv_ikx_indexed, jump_flag, *dv_jump;
+    int *ikx_indexed, *dv_ikx_indexed, *dv_jump, *jump;
     __device__ int *gb_ikx_indexed, *gb_jump;
-    cureal *dv_ky_shift, *kperp2_shear, *dv_kperp2_shear;
+    cureal *ky_shift, *dv_ky_shift, *kperp2_shear, *dv_kperp2_shear;
+
+    int jump_flag, *dv_jump_flag;
 
     cureal  *dv_rtmp;
     cucmplx *dv_ctmp1, *dv_ctmp2, *dv_ctmp3;
@@ -48,10 +52,13 @@ void finish_shear
 
 void update_shear
     ( const cureal delt
+    , const cureal time
+    , const int    istep
 );
 
 __global__ static void shearing_ky
-    ( const cureal delt
+    ( const cureal  delt
+    ,       int    *dv_jump_flag
 );
 
 __global__ static void shearing_field
@@ -136,6 +143,8 @@ void init_shear
 ){
     kperp2_shear = new cureal [nkx*nky];
 
+    cudaMalloc( (void**)&dv_jump_flag, sizeof(int) );
+
     cudaMalloc( (void**)&dv_kperp2_shear, sizeof(cureal)*nkx*nky );
     cudaMemcpy( dv_kperp2_shear, kperp2, sizeof(cureal)*nkx*nky, cudaMemcpyHostToDevice );
     cudaMemcpyToSymbol( gb_kperp2_shear, &dv_kperp2_shear, sizeof(dv_kperp2_shear) );
@@ -148,10 +157,12 @@ void init_shear
     cudaMemcpy( dv_ikx_indexed, ikx_indexed, sizeof(int) * nkx, cudaMemcpyHostToDevice );
     cudaMemcpyToSymbol( gb_ikx_indexed, &dv_ikx_indexed, sizeof(dv_ikx_indexed) );
 
+    jump = new int [nkx];
     cudaMalloc( (void**)&dv_jump, sizeof(int)*nkx );
     cudaMemset( dv_jump, 0, sizeof(int)*nkx );
     cudaMemcpyToSymbol( gb_jump, &dv_jump, sizeof(dv_jump) );
 
+    ky_shift = new cureal [nkx];
     cudaMalloc( (void**)&dv_ky_shift, sizeof(cureal)*nkx );
     cudaMemset( dv_ky_shift, 0, sizeof(cureal)*nkx );
     cudaMemcpyToSymbol( gb_ky_shift, &dv_ky_shift, sizeof(dv_ky_shift) );
@@ -167,8 +178,11 @@ void finish_shear
 ){
     delete[] kperp2_shear;
     delete[] ikx_indexed;
+    delete[] jump;
+    delete[] ky_shift;
 
     cudaFree( dv_jump );
+    cudaFree( dv_jump_flag );
     cudaFree( dv_ky_shift );
     cudaFree( dv_kperp2_shear );
     cudaFree( dv_ikx_indexed );
@@ -182,16 +196,30 @@ void finish_shear
 
 void update_shear
     ( const cureal delt 
+    , const cureal time
+    , const int    istep
 ){
     dim3 block( nthread );
     dim3 kxgrid( ((nkx-1)+nthread-1)/nthread );
     dim3 cgrid( (nkx*nky+nthread-1)/nthread );
 
-    shearing_ky <<< kxgrid, block >>> ( delt );
+    jump_flag = 0;
+    cudaMemset( dv_jump_flag , 0, sizeof(int) );
+    shearing_ky <<< kxgrid, block >>> ( delt, dv_jump_flag );
 
-    cudaMemcpy( &jump_flag, dv_jump+1, sizeof(int), cudaMemcpyDeviceToHost );
-    if( jump_flag != 0 ){
-        /* k_data( 0 ); */
+    /* cudaMemcpy( ky_shift, dv_ky_shift, sizeof(cureal)*nkx, cudaMemcpyDeviceToHost ); */
+    /* printf( "time = %g\nky_shift = ", time ); */
+    /* for( int ikx = 0; ikx < nkx; ikx++ ) printf( "%7.4lf ", ky_shift[ikx] ); */
+    /*  */
+    /* cudaMemcpy( jump, dv_jump, sizeof(int)*nkx, cudaMemcpyDeviceToHost ); */
+    /* printf( "\njump = " ); */
+    /* for( int ikx = 0; ikx < nkx; ikx++ ) printf("%+d ", jump[ikx] ); */
+    /* printf( "\n" ); */
+
+    cudaMemcpy( &jump_flag, dv_jump_flag, sizeof(int), cudaMemcpyDeviceToHost );
+    if( jump_flag ){
+
+        k_data_bef( time, istep );
 
         cudaMemcpy( dv_ctmp1, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
         shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aomg0 );
@@ -224,25 +252,30 @@ void update_shear
         cudaMemcpy( dv_ctmp1, dv_aphi, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
         shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aphi );
 
-        /* k_data( 1 ); */
+        k_data_aft( time, istep );
     }
 
     get_kperp2_shear <<< cgrid, block >>> ();
 }
 
 __global__ static void shearing_ky
-    ( const cureal delt
+    ( const cureal  delt
+    ,       int    *dv_jump_flag
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x + 1;
 
     if( tid <= ct_nkx-1 ){
         gb_ky_shift[tid] = gb_ky_shift[tid] - ct_sigma * gb_kx[tid] * delt;
-        gb_jump[tid] = floor( gb_ky_shift[tid]/gb_ky[1] + 0.5 );
+        gb_jump[tid] = round( gb_ky_shift[tid]/gb_kx[1] );
 
         __syncthreads();
 
-        if( gb_jump[1] != 0 )
-            gb_ky_shift[tid] = gb_ky_shift[tid] - gb_jump[tid] * gb_ky[1];
+        if( fabs( gb_ky_shift[1] - (-gb_kx[1]) ) < 1e-10 ){
+            /* gb_ky_shift[tid] = gb_ky_shift[tid] - gb_jump[tid] * gb_ky[1]; */
+            gb_ky_shift[tid] = 0;
+
+            if( tid == 1 ) dv_jump_flag[0] = 1;
+        }
     }
 }
 

@@ -32,8 +32,10 @@ cureal output_time, next_output_time;
 namespace{
     FILE *fp;
     char *filename;
+    int  *kx_index;
     cucmplx *aomgz, *aphi, *arho;
-    cureal  *ensp_ao, *ensp_ap, *ensp_ar;
+    cureal  *ensp_ao_kx, *ensp_ap_kx, *ensp_ar_kx;
+    cureal  *ensp_ao_ky, *ensp_ap_ky, *ensp_ar_ky;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -87,8 +89,14 @@ void en_spectral
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void k_data
-    ( const int flag
+void k_data_bef
+    ( const cureal time
+    , const int    istep
+);
+
+void k_data_aft
+    ( const cureal time
+    , const int    istep
 );
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -119,23 +127,27 @@ void input_data
     Ly      = readEntry<cureal>( pt, "simulation", "Ly", M_PI );
     delt    = readEntry<cureal>( pt, "simulation", "time step", 1e-3 );
     tmax    = readEntry<cureal>( pt, "simulation", "time max", 30 );
-    cfl_num = readEntry<cureal>( pt, "simulation", "cfl number", 5e-3 );
+    cfl_num = readEntry<cureal>( pt, "simulation", "cfl number", 1e-1 );
+    
+    /* Lx *= 2; */
+    /* Ly *= 2; */
 
     // output parameters
-    output_time  = readEntry<cureal>( pt, "output", "output time step",  1.0 );
-    nwrite       = readEntry<int>(    pt, "output", "output loop count", 100 );
+    output_time  = readEntry<cureal>( pt, "output", "output time step",  1.0  );
+    nwrite       = readEntry<int>(    pt, "output", "output loop count", 100  );
     write_fields = readEntry<bool>(   pt, "output", "write output",      true );
 
     // problem parameters
-    noise_flag = readEntry<bool>(   pt, "problem", "initial noise", true );
-    nu         = readEntry<cureal>( pt, "problem", "nu",            1e-3 );
-    kappa      = readEntry<cureal>( pt, "problem", "kappa",         1e-5 );
-    sigma      = readEntry<cureal>( pt, "problem", "sigma",         1.0 );
-    g          = readEntry<cureal>( pt, "problem", "g",             1.0 );
-    rho0_prime = readEntry<cureal>( pt, "problem", "rho0_prime",    1.0 );
-    rho0       = readEntry<cureal>( pt, "problem", "rho0",          1.0 );
-    rho_eps1   = readEntry<cureal>( pt, "problem", "rho_eps1",      1e-2 );
-    rho_eps2   = rho_eps1 / 2.0;
+    noise_flag  = readEntry<bool>(   pt, "problem", "initial noise", true  );
+    linear_flag = readEntry<bool>(   pt, "problem", "linear eq.",    false );
+    nu          = readEntry<cureal>( pt, "problem", "nu",            1e-3  );
+    kappa       = readEntry<cureal>( pt, "problem", "kappa",         1e-5  );
+    sigma       = readEntry<cureal>( pt, "problem", "sigma",         1.0   );
+    g           = readEntry<cureal>( pt, "problem", "g",             1.0   );
+    rho0_prime  = readEntry<cureal>( pt, "problem", "rho0_prime",    1.0   );
+    rho0        = readEntry<cureal>( pt, "problem", "rho0",          1.0   );
+    rho_eps1    = readEntry<cureal>( pt, "problem", "rho_eps1",      1e-2  );
+    rho_eps2    = 0.1 * rho_eps1;
 }
 
 template <class T>
@@ -172,21 +184,37 @@ void init_output
     aomgz = new cucmplx[nkx*nky];
     aphi  = new cucmplx[nkx*nky];
     arho  = new cucmplx[nkx*nky];
-    ensp_ao = new cureal[nky];
-    ensp_ap = new cureal[nky];
-    ensp_ar = new cureal[nky];
+
+    ensp_ao_kx = new cureal[nkx];
+    ensp_ap_kx = new cureal[nkx];
+    ensp_ar_kx = new cureal[nkx];
+
+    ensp_ao_ky = new cureal[nky];
+    ensp_ap_ky = new cureal[nky];
+    ensp_ar_ky = new cureal[nky];
+
+    kx_index = new int[nkx];
+    for( int ikx = nkxh; ikx < nkx; ikx++ ) kx_index[ikx-nkxh] = ikx;
+    for( int ikx = 0; ikx < nkxh; ikx++ ) kx_index[ikx+(nkx-nkxh)] = ikx;
 }
 
 void finish_output
     ( void
 ){
     delete[] filename;
+    delete[] kx_index;
+
     delete[] aomgz;
     delete[] aphi;
     delete[] arho;
-    delete[] ensp_ao;
-    delete[] ensp_ap;
-    delete[] ensp_ar;
+
+    delete[] ensp_ao_kx;
+    delete[] ensp_ap_kx;
+    delete[] ensp_ar_kx;
+
+    delete[] ensp_ao_ky;
+    delete[] ensp_ap_ky;
+    delete[] ensp_ar_ky;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -288,34 +316,34 @@ void en_spectral
             if( ikx == 0 ){
                 re = aomgz[ikx*nky+iky].x;
                 im = aomgz[ikx*nky+iky].y;
-                ensp_ao[iky] = re*re + im*im;
+                ensp_ao_ky[iky] = re*re + im*im;
 
                 re = aphi[ikx*nky+iky].x;
                 im = aphi[ikx*nky+iky].y;
-                ensp_ap[iky] = re*re + im*im; 
+                ensp_ap_ky[iky] = re*re + im*im; 
 
                 re = arho[ikx*nky+iky].x;
                 im = arho[ikx*nky+iky].y;
-                ensp_ar[iky] = re*re + im*im; 
+                ensp_ar_ky[iky] = re*re + im*im; 
             }
             else{
                 re  = aomgz[ikx*nky+iky].x;
                 im  = aomgz[ikx*nky+iky].y;
-                ensp_ao[iky] += re*re + im*im;
+                ensp_ao_ky[iky] += re*re + im*im;
 
                 re  = aphi[ikx*nky+iky].x;
                 im  = aphi[ikx*nky+iky].y;
-                ensp_ap[iky] += re*re + im*im; 
+                ensp_ap_ky[iky] += re*re + im*im; 
 
                 re  = arho[ikx*nky+iky].x;
                 im  = arho[ikx*nky+iky].y;
-                ensp_ar[iky] += re*re + im*im; 
+                ensp_ar_ky[iky] += re*re + im*im; 
             }
         }
     }
     for( int iky = 0; iky < nky; iky++ ) 
         fprintf( fp, "%+e %+e %+e %+e\n", 
-                 ky[iky], ensp_ao[iky]/nkx, ensp_ap[iky]/nkx, ensp_ar[iky]/nkx );
+                 ky[iky], ensp_ao_ky[iky]/nkx, ensp_ap_ky[iky]/nkx, ensp_ar_ky[iky]/nkx );
     fclose( fp );
 
 
@@ -327,56 +355,62 @@ void en_spectral
             if( iky == 0 ){
                 re = aomgz[ikx*nky+iky].x;
                 im = aomgz[ikx*nky+iky].y;
-                ensp_ao[ikx] = re*re + im*im;
+                ensp_ao_kx[ikx] = re*re + im*im;
 
                 re = aphi[ikx*nky+iky].x;
                 im = aphi[ikx*nky+iky].y;
-                ensp_ap[ikx] = re*re + im*im; 
+                ensp_ap_kx[ikx] = re*re + im*im; 
 
                 re = arho[ikx*nky+iky].x;
                 im = arho[ikx*nky+iky].y;
-                ensp_ar[ikx] = re*re + im*im; 
+                ensp_ar_kx[ikx] = re*re + im*im; 
             }
             else{
                 re  = aomgz[ikx*nky+iky].x;
                 im  = aomgz[ikx*nky+iky].y;
-                ensp_ao[ikx] += re*re + im*im;
+                ensp_ao_kx[ikx] += re*re + im*im;
 
                 re  = aphi[ikx*nky+iky].x;
                 im  = aphi[ikx*nky+iky].y;
-                ensp_ap[ikx] += re*re + im*im; 
+                ensp_ap_kx[ikx] += re*re + im*im; 
 
                 re  = arho[ikx*nky+iky].x;
                 im  = arho[ikx*nky+iky].y;
-                ensp_ar[ikx] += re*re + im*im; 
+                ensp_ar_kx[ikx] += re*re + im*im; 
             }
         }
     }
     for( int ikx = 0; ikx < nkx; ikx++ ) 
         fprintf( fp, "%+e %+e %+e %+e\n", 
-                 ky[ikx], ensp_ao[ikx]/nky, ensp_ap[ikx]/nky, ensp_ar[ikx]/nky );
+                 ky[ikx], ensp_ao_kx[ikx]/nky, ensp_ap_kx[ikx]/nky, ensp_ar_kx[ikx]/nky );
     fclose( fp );
 
 
-    snprintf( filename, FILENAMELEN, "ks_t%09.6f.dat", time );
+    snprintf( filename, FILENAMELEN, "ksre_t%09.6f.dat", time );
     if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
-
     for( int ikx = 0; ikx < nkx; ikx++ ){
         for( int iky = 0; iky < nky; iky++ ){
-            re = aomgz[ikx*nky+iky].x;
-            im = aomgz[ikx*nky+iky].y;
-            ao = sqrt( re*re + im*im ); 
-
-            re = aphi[ikx*nky+iky].x;
-            im = aphi[ikx*nky+iky].y;
-            ap = sqrt( re*re + im*im ); 
-
-            re = arho[ikx*nky+iky].x;
-            im = arho[ikx*nky+iky].y;
-            ar = sqrt( re*re + im*im ); 
+            ao = fabs( aomgz[kx_index[ikx]*nky+iky].x ); 
+            ap = fabs( aphi[kx_index[ikx]*nky+iky].x ); 
+            ar = fabs( arho[kx_index[ikx]*nky+iky].x ); 
 
             fprintf( fp, "%+e %+e %+e %+e %+e\n",
-                     kx[ikx], ky[iky], ao, ap, ar );
+                     kx[kx_index[ikx]], ky[iky], ao, ap, ar );
+        }
+        fprintf( fp, "\n" );
+    }
+    fclose( fp );
+
+    snprintf( filename, FILENAMELEN, "ksim_t%09.6f.dat", time );
+    if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            ao = fabs( aomgz[kx_index[ikx]*nky+iky].y ); 
+            ap = fabs( aphi[kx_index[ikx]*nky+iky].y ); 
+            ar = fabs( arho[kx_index[ikx]*nky+iky].y ); 
+
+            fprintf( fp, "%+e %+e %+e %+e %+e\n",
+                     kx[kx_index[ikx]], ky[iky], ao, ap, ar );
         }
         fprintf( fp, "\n" );
     }
@@ -385,16 +419,52 @@ void en_spectral
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void k_data
-    ( const int flag
+void k_data_bef
+    ( const cureal time
+    , const int    istep
 ){
     cudaMemcpy( aomgz, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
     cudaMemcpy( aphi,  dv_aphi,  sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
     cudaMemcpy( arho,  dv_arho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
 
-    snprintf( filename, FILENAMELEN, "k_data_f%d.dat", flag );
+    snprintf( filename, FILENAMELEN, "befk_n%05d_t%09.6f.dat", istep/nwrite, time );
     if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
 
+    fprintf( fp, "///////////////////////////// omg //////////////////////////////\n");
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", aomgz[ikx*nky+iky].x );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "\n" );
+    fprintf( fp, "\n" );
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", aomgz[ikx*nky+iky].y );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "///////////////////////////////////////////////////////////////\n\n");
+
+    fprintf( fp, "///////////////////////////// phi //////////////////////////////\n");
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", aphi[ikx*nky+iky].x );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "\n" );
+    fprintf( fp, "\n" );
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", aphi[ikx*nky+iky].y );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "///////////////////////////////////////////////////////////////\n\n");
+
+    fprintf( fp, "///////////////////////////// rho //////////////////////////////\n");
     for( int ikx = 0; ikx < nkx; ikx++ ){
         for( int iky = 0; iky < nky; iky++ ){
             fprintf( fp, "%+e ", arho[ikx*nky+iky].x );
@@ -409,7 +479,73 @@ void k_data
         }
         fprintf( fp, "\n" );
     }
+    fprintf( fp, "///////////////////////////////////////////////////////////////\n");
+
     fclose( fp );
 }
 
+void k_data_aft
+    ( const cureal time
+    , const int    istep
+){
+    cudaMemcpy( aomgz, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+    cudaMemcpy( aphi,  dv_aphi,  sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+    cudaMemcpy( arho,  dv_arho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+
+    snprintf( filename, FILENAMELEN, "aftk_n%05d_t%09.6f.dat", istep/nwrite, time );
+    if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
+
+    fprintf( fp, "///////////////////////////// omg //////////////////////////////\n");
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", aomgz[ikx*nky+iky].x );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "\n" );
+    fprintf( fp, "\n" );
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", aomgz[ikx*nky+iky].y );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "///////////////////////////////////////////////////////////////\n\n");
+
+    fprintf( fp, "///////////////////////////// phi //////////////////////////////\n");
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", aphi[ikx*nky+iky].x );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "\n" );
+    fprintf( fp, "\n" );
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", aphi[ikx*nky+iky].y );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "///////////////////////////////////////////////////////////////\n\n");
+
+    fprintf( fp, "///////////////////////////// rho //////////////////////////////\n");
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", arho[ikx*nky+iky].x );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "\n" );
+    fprintf( fp, "\n" );
+    for( int ikx = 0; ikx < nkx; ikx++ ){
+        for( int iky = 0; iky < nky; iky++ ){
+            fprintf( fp, "%+e ", arho[ikx*nky+iky].y );
+        }
+        fprintf( fp, "\n" );
+    }
+    fprintf( fp, "///////////////////////////////////////////////////////////////\n");
+
+    fclose( fp );
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////

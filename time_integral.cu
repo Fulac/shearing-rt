@@ -21,7 +21,8 @@
 /* ---------------------------------------------------------------------------------------------- */
 
 // プログラム全体で使用する変数を定義
-bool noise_flag; // 初期値に擾乱を入れる (true) or 入れない (false)
+bool noise_flag;  // 初期値に擾乱を入れる (true) or 入れない (false)
+bool linear_flag; // 線形化した方程式を解く (true) or 非線形方程式 (false)
 cureal cfl_num;
 
 // このファイル内でのみ使用するグローバル変数を定義
@@ -52,6 +53,12 @@ void finish_tint
 
 void initialize
     ( void
+);
+
+__global__ static void replace_zero
+    ( cucmplx *dv_rho
+    , int      ikx
+    , int      iky
 );
 
 static void init_dis
@@ -247,11 +254,29 @@ void initialize
     cudaMemcpy( dv_rho,  rho,  sizeof(cureal)*nx*ny, cudaMemcpyHostToDevice );
     xtok( dv_omgz, dv_aomg0 );
     xtok( dv_rho,  dv_arho0 );
+    /* replace_zero <<< cgrid, block >>> ( dv_arho0, 1, 5 ); */
 
     if( noise_flag ) init_dis();
 
     neg_lapinv <<< cgrid, block >>> ( dv_aomg0, dv_aphi );
     get_vector( dv_aphi, dv_vx, dv_vy );
+}
+
+__global__ static void replace_zero
+    ( cucmplx *dv_rho
+    , int      ikx
+    , int      iky
+){
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int xid = idx/ct_nky, yid = idx%ct_nky;
+
+    if( idx < ct_nkx*ct_nky ){
+        if( xid == ikx && yid == iky ) dv_rho[idx].y = 0;
+        else{ 
+            dv_rho[idx].x = 0;
+            dv_rho[idx].y = 0;
+        }
+    }
 }
 
 static void init_dis
@@ -279,10 +304,8 @@ static void init_dis
             /* } */
             // 複素共役を保つ
             if( fabs(kx[ikx]) <= 2 && fabs(ky[iky]) != 0 && fabs(ky[iky]) <= 10 ){
-                fk1[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)
-                                 / sqrt(2 * 10);
-                fk2[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0)
-                                 / sqrt(2 * 10);
+                fk1[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0);
+                fk2[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0);
             }
             else{
                 fk1[ikx*nky+iky] = 0;
@@ -329,7 +352,7 @@ void time_advance
     advect_rho( istep );
     dissipate_rho( istep );
 
-    update_shear( delt );
+    update_shear( delt, time, istep );
 
     istep++;
     time += delt;
@@ -349,35 +372,32 @@ static void check_cfl
     get_vector_shear( dv_aphi, dv_vx, dv_vy );
 
     dim3 rblocks( (nx*ny+nthread-1)/nthread );
-    cureal cfl_vec;
+    cureal cfl_vx, cfl_vy, cfl_rho0g, cfl_rho0prime;
 
     add_v0 <<< rblocks, threads >>> ( dv_vx, dv_rtmp );
-    cfl_vec = maxvalue_search( dv_rtmp );
-    while( (cfl_vec * delt / dx) > cfl_num ){
+    cfl_vx = maxvalue_search( dv_rtmp );
+    while( (cfl_vx * delt / dx) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_vx = %g, delt = %g\n"
-                , istep, time, cfl_vec, delt );
+                , istep, time, cfl_vx, delt );
     }
-
-    cfl_vec = maxvalue_search( dv_vy );
-    while( (cfl_vec * delt / dy) > cfl_num ){
+    cfl_vy = maxvalue_search( dv_vy );
+    while( (cfl_vy * delt / dy) > (cfl_num / 2.0) ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_vy = %g, delt = %g\n"
-                , istep, time, cfl_vec, delt );
+                , istep, time, cfl_vy, delt );
     }
-
-    cfl_vec = rho0 / g;
-    while( (cfl_vec * delt / dx) > cfl_num ){
+    cfl_rho0g = rho0 / g;
+    while( (cfl_rho0g * delt / dx) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_(rho0/g) = %g, delt = %g\n"
-                , istep, time, cfl_vec, delt );
+                , istep, time, cfl_rho0g, delt );
     }
-
-    cfl_vec = rho0_prime;
-    while( (cfl_vec * delt / dx) > cfl_num ){
+    cfl_rho0prime = rho0_prime;
+    while( (cfl_rho0prime * delt / dx) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_rho0_prime = %g, delt = %g\n"
-                , istep, time, cfl_vec, delt );
+                , istep, time, cfl_rho0prime, delt );
     }
 }
 
@@ -490,9 +510,14 @@ static void advect_omg
     dim3 rgrid( (nx*ny+nthread-1)/nthread );
     dim3 cgrid( (nkx*nky+nthread-1)/nthread );
 
-    poisson_bracket_shear( dv_vx, dv_vy, dv_aomg1, dv_rtmp );
-    negative <<< rgrid, block >>> ( dv_rtmp );
-    xtok( dv_rtmp, dv_domg0 );
+    if( linear_flag ){
+        cudaMemset( dv_domg0, 0, sizeof(cucmplx)*nkx*nky );
+    }
+    else{
+        poisson_bracket_shear( dv_vx, dv_vy, dv_aomg1, dv_rtmp );
+        negative <<< rgrid, block >>> ( dv_rtmp );
+        xtok( dv_rtmp, dv_domg0 );
+    }
     add_ddxrho <<< cgrid, block >>> ( dv_domg0, dv_arho1 );
 
     switch( istep ){
@@ -548,9 +573,14 @@ static void advect_rho
     dim3 rgrid( (nx*ny+nthread-1)/nthread );
     dim3 cgrid( (nkx*nky+nthread-1)/nthread );
 
-    poisson_bracket_shear( dv_vx, dv_vy, dv_arho1, dv_rtmp );
-    negative <<< rgrid, block >>> ( dv_rtmp );
-    xtok( dv_rtmp, dv_drho0 );
+    if( linear_flag ){
+        cudaMemset( dv_drho0, 0, sizeof(cucmplx)*nkx*nky );
+    }
+    else{
+        poisson_bracket_shear( dv_vx, dv_vy, dv_arho1, dv_rtmp );
+        negative <<< rgrid, block >>> ( dv_rtmp );
+        xtok( dv_rtmp, dv_drho0 );
+    }
     add_ddxphi <<< cgrid, block >>> ( dv_drho0, dv_aphi );
 
     switch( istep ){

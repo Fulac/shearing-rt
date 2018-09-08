@@ -37,10 +37,15 @@ int main
         output_fields( istep, time );
         output_maxamp( time );
         en_spectral( istep, time );
+        k_data_bef( time, istep );
     }
 
     while( time <= tmax ){
         time_advance( istep, time );
+
+        if( istep == 1 ){
+            k_data_bef( time, istep );
+        }
 
         if( write_fields && time > next_output_time ){
             next_output_time += output_time;

@@ -31,8 +31,14 @@ void en_spectral
     , const cureal time
 );
 
-void k_data
-    ( const int flag
+void k_data_bef
+    ( const cureal time
+    , const int    istep
+);
+
+void k_data_aft
+    ( const cureal time
+    , const int    istep
 );
 
 #endif
