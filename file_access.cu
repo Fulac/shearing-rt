@@ -139,7 +139,7 @@ void input_data
 
     // problem parameters
     noise_flag  = readEntry<bool>(   pt, "problem", "initial noise", true  );
-    linear_flag = readEntry<bool>(   pt, "problem", "linear eq.",    false );
+    linear_flag = readEntry<bool>(   pt, "problem", "linear eq",    false );
     nu          = readEntry<cureal>( pt, "problem", "nu",            1e-3  );
     kappa       = readEntry<cureal>( pt, "problem", "kappa",         1e-5  );
     sigma       = readEntry<cureal>( pt, "problem", "sigma",         1.0   );

@@ -13,7 +13,7 @@ IGNOREWARNING  = -Xcompiler "/wd 4819"
 ifeq ($(debug),on)
   NVCCFLAGS += -DDEBUG -g -Xcompiler "-Wall -Wextra -Wno-long-long"
 else
-  NVCCFLAGS += -Xcompiler "/O2"
+  NVCCFLAGS += -Xcompiler "/O2" -D_USE_MATH_DEFINES
 endif
 
 ifeq ($(dble),on)
