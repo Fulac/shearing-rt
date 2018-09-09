@@ -40,11 +40,11 @@ if [[ -e ksim_t00.000000.dat ]]; then
 fi
 
 if [[ -e kx_ensp.txt ]]; then
-  rm kx_ensp.txt
+  mv kx_ensp.txt
   mv kx*.dat kx_ensp/data
 fi
 if [[ -e ky_ensp.txt ]]; then
-  rm ky_ensp.txt
+  mv ky_ensp.txt
   mv ky*.dat ky_ensp/data
 fi
 
@@ -99,7 +99,9 @@ cd ../..
 
 
 cd kx_ensp/data
-if [[ -e kx_ensp_t01.000000.dat ]]; then
+if [[ -e kx_ensp.txt ]]; then
+  rm kx_ensp.txt
+
   gnuplot ../../gp_files/plot_kx_ensp_omg.gp
   mv *.eps ../omg
 
@@ -112,7 +114,9 @@ fi
 cd ../..
 
 cd ky_ensp/data
-if [[ -e ky_ensp_t01.000000.dat ]]; then
+if [[ -e ky_ensp.txt ]]; then
+  rm ky_ensp.txt
+
   gnuplot ../../gp_files/plot_ky_ensp_omg.gp
   mv *.eps ../omg
 
