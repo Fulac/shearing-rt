@@ -219,7 +219,7 @@ void update_shear
     cudaMemcpy( &jump_flag, dv_jump_flag, sizeof(int), cudaMemcpyDeviceToHost );
     if( jump_flag ){
 
-        k_data_bef( time, istep );
+        k_data_bef( time+delt, istep+1 );
 
         cudaMemcpy( dv_ctmp1, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
         shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aomg0 );
@@ -252,7 +252,7 @@ void update_shear
         cudaMemcpy( dv_ctmp1, dv_aphi, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToDevice );
         shearing_field <<< cgrid, block >>> ( dv_ctmp1, dv_aphi );
 
-        k_data_aft( time, istep );
+        k_data_aft( time+delt, istep+1 );
     }
 
     get_kperp2_shear <<< cgrid, block >>> ();

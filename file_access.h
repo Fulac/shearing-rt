@@ -31,6 +31,10 @@ void en_spectral
     , const cureal time
 );
 
+void ks_reim
+    ( const cureal time
+);
+
 void k_data_bef
     ( const cureal time
     , const int    istep

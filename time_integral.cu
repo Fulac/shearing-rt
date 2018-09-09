@@ -382,7 +382,7 @@ static void check_cfl
                 , istep, time, cfl_vx, delt );
     }
     cfl_vy = maxvalue_search( dv_vy );
-    while( (cfl_vy * delt / dy) > (cfl_num / 2.0) ){
+    while( (cfl_vy * delt / dy) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_vy = %g, delt = %g\n"
                 , istep, time, cfl_vy, delt );

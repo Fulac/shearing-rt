@@ -2,7 +2,7 @@ files = system("ls n*t*.dat")
 print( files )
 
 set size square
-set terminal png size 800,600 lw 5 font ",28"
+set terminal png size 1100,900 lw 5 font ",28"
 set xl "x"
 set yl "y"
 set palette defined (-1 "blue", 0 "white", 1 "red")

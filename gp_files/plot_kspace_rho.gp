@@ -1,8 +1,8 @@
 files = system("ls ks*t*.dat")
 print( files )
 
-set size square
-set terminal png size 800,600 lw 5 font ",28"
+#set size square
+set terminal png size 1100,900 lw 5 font ",28"
 set xl "kx"
 set yl "ky"
 #set palette defined (-1 "blue", 0 "white", 1 "red")

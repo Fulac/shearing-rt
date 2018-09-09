@@ -89,6 +89,12 @@ void en_spectral
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+void ks_reim
+    ( const cureal time
+);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 void k_data_bef
     ( const cureal time
     , const int    istep
@@ -302,89 +308,104 @@ void en_spectral
     , const cureal time
 ){
     cureal re, im;
+
+    if( time == 0 ){
+        snprintf( filename, FILENAMELEN, "kx_ensp.txt" );
+        snprintf( filename, FILENAMELEN, "ky_ensp.txt" );
+    }
+    else{
+        cudaMemcpy( aomgz, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+        cudaMemcpy( aphi,  dv_aphi,  sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+        cudaMemcpy( arho,  dv_arho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+
+        snprintf( filename, FILENAMELEN, "kx_ensp_t%09.6f.dat", time );
+        if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
+
+        for( int ikx = 0; ikx < nkx; ikx++ ){
+            for( int iky = 0; iky < nky; iky++ ){
+                if( iky == 0 ){
+                    re = aomgz[ikx*nky+iky].x;
+                    im = aomgz[ikx*nky+iky].y;
+                    ensp_ao_kx[ikx] = re*re + im*im;
+
+                    re = aphi[ikx*nky+iky].x;
+                    im = aphi[ikx*nky+iky].y;
+                    ensp_ap_kx[ikx] = re*re + im*im; 
+
+                    re = arho[ikx*nky+iky].x;
+                    im = arho[ikx*nky+iky].y;
+                    ensp_ar_kx[ikx] = re*re + im*im; 
+                }
+                else{
+                    re  = aomgz[ikx*nky+iky].x;
+                    im  = aomgz[ikx*nky+iky].y;
+                    ensp_ao_kx[ikx] += re*re + im*im;
+
+                    re  = aphi[ikx*nky+iky].x;
+                    im  = aphi[ikx*nky+iky].y;
+                    ensp_ap_kx[ikx] += re*re + im*im; 
+
+                    re  = arho[ikx*nky+iky].x;
+                    im  = arho[ikx*nky+iky].y;
+                    ensp_ar_kx[ikx] += re*re + im*im; 
+                }
+            }
+        }
+        for( int ikx = 0; ikx < nkx; ikx++ ) 
+            fprintf( fp, "%+e %+e %+e %+e\n", 
+                     ky[ikx], ensp_ao_kx[ikx]/nky, ensp_ap_kx[ikx]/nky, ensp_ar_kx[ikx]/nky );
+        fclose( fp );
+
+        snprintf( filename, FILENAMELEN, "ky_ensp_t%09.6f.dat", time );
+        if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
+
+        for( int ikx = 0; ikx < nkx; ikx++ ){
+            for( int iky = 0; iky < nky; iky++ ){
+                if( ikx == 0 ){
+                    re = aomgz[ikx*nky+iky].x;
+                    im = aomgz[ikx*nky+iky].y;
+                    ensp_ao_ky[iky] = re*re + im*im;
+
+                    re = aphi[ikx*nky+iky].x;
+                    im = aphi[ikx*nky+iky].y;
+                    ensp_ap_ky[iky] = re*re + im*im; 
+
+                    re = arho[ikx*nky+iky].x;
+                    im = arho[ikx*nky+iky].y;
+                    ensp_ar_ky[iky] = re*re + im*im; 
+                }
+                else{
+                    re  = aomgz[ikx*nky+iky].x;
+                    im  = aomgz[ikx*nky+iky].y;
+                    ensp_ao_ky[iky] += re*re + im*im;
+
+                    re  = aphi[ikx*nky+iky].x;
+                    im  = aphi[ikx*nky+iky].y;
+                    ensp_ap_ky[iky] += re*re + im*im; 
+
+                    re  = arho[ikx*nky+iky].x;
+                    im  = arho[ikx*nky+iky].y;
+                    ensp_ar_ky[iky] += re*re + im*im; 
+                }
+            }
+        }
+        for( int iky = 0; iky < nky; iky++ ) 
+            fprintf( fp, "%+e %+e %+e %+e\n", 
+                     ky[iky], ensp_ao_ky[iky]/nkx, ensp_ap_ky[iky]/nkx, ensp_ar_ky[iky]/nkx );
+        fclose( fp );
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void ks_reim
+    ( const cureal time
+){
     cureal ao, ap, ar;
 
     cudaMemcpy( aomgz, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
     cudaMemcpy( aphi,  dv_aphi,  sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
     cudaMemcpy( arho,  dv_arho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
-
-    snprintf( filename, FILENAMELEN, "ky_ensp_t%09.6f.dat", time );
-    if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
-
-    for( int ikx = 0; ikx < nkx; ikx++ ){
-        for( int iky = 0; iky < nky; iky++ ){
-            if( ikx == 0 ){
-                re = aomgz[ikx*nky+iky].x;
-                im = aomgz[ikx*nky+iky].y;
-                ensp_ao_ky[iky] = re*re + im*im;
-
-                re = aphi[ikx*nky+iky].x;
-                im = aphi[ikx*nky+iky].y;
-                ensp_ap_ky[iky] = re*re + im*im; 
-
-                re = arho[ikx*nky+iky].x;
-                im = arho[ikx*nky+iky].y;
-                ensp_ar_ky[iky] = re*re + im*im; 
-            }
-            else{
-                re  = aomgz[ikx*nky+iky].x;
-                im  = aomgz[ikx*nky+iky].y;
-                ensp_ao_ky[iky] += re*re + im*im;
-
-                re  = aphi[ikx*nky+iky].x;
-                im  = aphi[ikx*nky+iky].y;
-                ensp_ap_ky[iky] += re*re + im*im; 
-
-                re  = arho[ikx*nky+iky].x;
-                im  = arho[ikx*nky+iky].y;
-                ensp_ar_ky[iky] += re*re + im*im; 
-            }
-        }
-    }
-    for( int iky = 0; iky < nky; iky++ ) 
-        fprintf( fp, "%+e %+e %+e %+e\n", 
-                 ky[iky], ensp_ao_ky[iky]/nkx, ensp_ap_ky[iky]/nkx, ensp_ar_ky[iky]/nkx );
-    fclose( fp );
-
-
-    snprintf( filename, FILENAMELEN, "kx_ensp_t%09.6f.dat", time );
-    if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
-
-    for( int ikx = 0; ikx < nkx; ikx++ ){
-        for( int iky = 0; iky < nky; iky++ ){
-            if( iky == 0 ){
-                re = aomgz[ikx*nky+iky].x;
-                im = aomgz[ikx*nky+iky].y;
-                ensp_ao_kx[ikx] = re*re + im*im;
-
-                re = aphi[ikx*nky+iky].x;
-                im = aphi[ikx*nky+iky].y;
-                ensp_ap_kx[ikx] = re*re + im*im; 
-
-                re = arho[ikx*nky+iky].x;
-                im = arho[ikx*nky+iky].y;
-                ensp_ar_kx[ikx] = re*re + im*im; 
-            }
-            else{
-                re  = aomgz[ikx*nky+iky].x;
-                im  = aomgz[ikx*nky+iky].y;
-                ensp_ao_kx[ikx] += re*re + im*im;
-
-                re  = aphi[ikx*nky+iky].x;
-                im  = aphi[ikx*nky+iky].y;
-                ensp_ap_kx[ikx] += re*re + im*im; 
-
-                re  = arho[ikx*nky+iky].x;
-                im  = arho[ikx*nky+iky].y;
-                ensp_ar_kx[ikx] += re*re + im*im; 
-            }
-        }
-    }
-    for( int ikx = 0; ikx < nkx; ikx++ ) 
-        fprintf( fp, "%+e %+e %+e %+e\n", 
-                 ky[ikx], ensp_ao_kx[ikx]/nky, ensp_ap_kx[ikx]/nky, ensp_ar_kx[ikx]/nky );
-    fclose( fp );
-
 
     snprintf( filename, FILENAMELEN, "ksre_t%09.6f.dat", time );
     if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
@@ -488,64 +509,70 @@ void k_data_aft
     ( const cureal time
     , const int    istep
 ){
-    cudaMemcpy( aomgz, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
-    cudaMemcpy( aphi,  dv_aphi,  sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
-    cudaMemcpy( arho,  dv_arho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+    if( time == 0 ){
+        snprintf( filename, FILENAMELEN, "after_kdata.txt" );
+    }
+    else{
+        cudaMemcpy( aomgz, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+        cudaMemcpy( aphi,  dv_aphi,  sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
+        cudaMemcpy( arho,  dv_arho0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
 
-    snprintf( filename, FILENAMELEN, "aftk_n%05d_t%09.6f.dat", istep/nwrite, time );
-    if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
+        snprintf( filename, FILENAMELEN, "aftk_n%05d_t%09.6f.dat", istep/nwrite, time );
+        if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
 
-    fprintf( fp, "///////////////////////////// omg //////////////////////////////\n");
-    for( int ikx = 0; ikx < nkx; ikx++ ){
-        for( int iky = 0; iky < nky; iky++ ){
-            fprintf( fp, "%+e ", aomgz[ikx*nky+iky].x );
+        fprintf( fp, "///////////////////////////// omg //////////////////////////////\n");
+        for( int ikx = 0; ikx < nkx; ikx++ ){
+            for( int iky = 0; iky < nky; iky++ ){
+                fprintf( fp, "%+e ", aomgz[ikx*nky+iky].x );
+            }
+            fprintf( fp, "\n" );
         }
         fprintf( fp, "\n" );
-    }
-    fprintf( fp, "\n" );
-    fprintf( fp, "\n" );
-    for( int ikx = 0; ikx < nkx; ikx++ ){
-        for( int iky = 0; iky < nky; iky++ ){
-            fprintf( fp, "%+e ", aomgz[ikx*nky+iky].y );
-        }
         fprintf( fp, "\n" );
-    }
-    fprintf( fp, "///////////////////////////////////////////////////////////////\n\n");
+        for( int ikx = 0; ikx < nkx; ikx++ ){
+            for( int iky = 0; iky < nky; iky++ ){
+                fprintf( fp, "%+e ", aomgz[ikx*nky+iky].y );
+            }
+            fprintf( fp, "\n" );
+        }
+        fprintf( fp, "///////////////////////////////////////////////////////////////\n\n");
 
-    fprintf( fp, "///////////////////////////// phi //////////////////////////////\n");
-    for( int ikx = 0; ikx < nkx; ikx++ ){
-        for( int iky = 0; iky < nky; iky++ ){
-            fprintf( fp, "%+e ", aphi[ikx*nky+iky].x );
+        fprintf( fp, "///////////////////////////// phi //////////////////////////////\n");
+        for( int ikx = 0; ikx < nkx; ikx++ ){
+            for( int iky = 0; iky < nky; iky++ ){
+                fprintf( fp, "%+e ", aphi[ikx*nky+iky].x );
+            }
+            fprintf( fp, "\n" );
         }
         fprintf( fp, "\n" );
-    }
-    fprintf( fp, "\n" );
-    fprintf( fp, "\n" );
-    for( int ikx = 0; ikx < nkx; ikx++ ){
-        for( int iky = 0; iky < nky; iky++ ){
-            fprintf( fp, "%+e ", aphi[ikx*nky+iky].y );
-        }
         fprintf( fp, "\n" );
-    }
-    fprintf( fp, "///////////////////////////////////////////////////////////////\n\n");
+        for( int ikx = 0; ikx < nkx; ikx++ ){
+            for( int iky = 0; iky < nky; iky++ ){
+                fprintf( fp, "%+e ", aphi[ikx*nky+iky].y );
+            }
+            fprintf( fp, "\n" );
+        }
+        fprintf( fp, "///////////////////////////////////////////////////////////////\n\n");
 
-    fprintf( fp, "///////////////////////////// rho //////////////////////////////\n");
-    for( int ikx = 0; ikx < nkx; ikx++ ){
-        for( int iky = 0; iky < nky; iky++ ){
-            fprintf( fp, "%+e ", arho[ikx*nky+iky].x );
+        fprintf( fp, "///////////////////////////// rho //////////////////////////////\n");
+        for( int ikx = 0; ikx < nkx; ikx++ ){
+            for( int iky = 0; iky < nky; iky++ ){
+                fprintf( fp, "%+e ", arho[ikx*nky+iky].x );
+            }
+            fprintf( fp, "\n" );
         }
         fprintf( fp, "\n" );
-    }
-    fprintf( fp, "\n" );
-    fprintf( fp, "\n" );
-    for( int ikx = 0; ikx < nkx; ikx++ ){
-        for( int iky = 0; iky < nky; iky++ ){
-            fprintf( fp, "%+e ", arho[ikx*nky+iky].y );
-        }
         fprintf( fp, "\n" );
-    }
-    fprintf( fp, "///////////////////////////////////////////////////////////////\n");
+        for( int ikx = 0; ikx < nkx; ikx++ ){
+            for( int iky = 0; iky < nky; iky++ ){
+                fprintf( fp, "%+e ", arho[ikx*nky+iky].y );
+            }
+            fprintf( fp, "\n" );
+        }
+        fprintf( fp, "///////////////////////////////////////////////////////////////\n");
 
-    fclose( fp );
+        fclose( fp );
+    }
 }
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////

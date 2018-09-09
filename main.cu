@@ -37,7 +37,9 @@ int main
         output_fields( istep, time );
         output_maxamp( time );
         en_spectral( istep, time );
+        ks_reim( time );
         k_data_bef( time, istep );
+        k_data_aft( time, istep );
     }
 
     while( time <= tmax ){
@@ -51,6 +53,9 @@ int main
             next_output_time += output_time;
             output_fields( istep, time );
             en_spectral( istep, time );
+            ks_reim( time );
+
+            if( linear_flag ) k_data_bef( time , istep );
         }
         if( write_fields && time > next_output_maxamp_time ){
             next_output_maxamp_time += output_maxamp_time;
