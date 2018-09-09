@@ -304,14 +304,19 @@ void output_maxamp
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void en_spectral
-    ( const int    /*istep*/
+    ( const int    istep
     , const cureal time
 ){
     cureal re, im;
 
-    if( time == 0 ){
+    if( istep == 0 ){
         snprintf( filename, FILENAMELEN, "kx_ensp.txt" );
+        if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
+        fclose( fp );
+
         snprintf( filename, FILENAMELEN, "ky_ensp.txt" );
+        if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
+        fclose( fp );
     }
     else{
         cudaMemcpy( aomgz, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
@@ -509,8 +514,10 @@ void k_data_aft
     ( const cureal time
     , const int    istep
 ){
-    if( time == 0 ){
+    if( istep == 0 ){
         snprintf( filename, FILENAMELEN, "after_kdata.txt" );
+        if( (fp=fopen(filename, "w+")) == NULL ) exit(1);
+        fclose( fp );
     }
     else{
         cudaMemcpy( aomgz, dv_aomg0, sizeof(cucmplx)*nkx*nky, cudaMemcpyDeviceToHost );
