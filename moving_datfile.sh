@@ -40,11 +40,11 @@ if [[ -e ksim_t00.000000.dat ]]; then
 fi
 
 if [[ -e kx_ensp.txt ]]; then
-  mv kx_ensp.txt
+  mv kx_ensp.txt kx_ensp/data
   mv kx*.dat kx_ensp/data
 fi
 if [[ -e ky_ensp.txt ]]; then
-  mv ky_ensp.txt
+  mv ky_ensp.txt ky_ensp/data
   mv ky*.dat ky_ensp/data
 fi
 
