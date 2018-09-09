@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NX="128"
+NX="64"
 NY="256"
 
 INITIAL_RHO="1e-2"
@@ -15,8 +15,8 @@ for INITIAL_RHO in $INITIAL_RHO; do
     echo "nx = $NX" >> $FILE
     echo "ny = $NY" >> $FILE
     echo "" >> $FILE
-    echo "time step = 1.5625e-5" >> $FILE
-    echo "time max = 50" >> $FILE
+    echo "time step = 1e-1" >> $FILE
+    echo "time max = 30" >> $FILE
     echo "" >> $FILE
     echo "cuda thread num = 1024" >> $FILE
     echo "cfl number = 1e-1" >> $FILE
@@ -27,7 +27,7 @@ for INITIAL_RHO in $INITIAL_RHO; do
     echo "" >> $FILE
     echo "[problem]" >> $FILE
     echo "initial noise = true" >> $FILE
-    echo "linear eq. = false" >> $FILE
+    echo "linear eq = false" >> $FILE
     echo "nu = 1e-3" >> $FILE
     echo "kappa = $KAPPA" >> $FILE
     echo "" >> $FILE
