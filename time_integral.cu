@@ -372,7 +372,7 @@ static void check_cfl
     get_vector_shear( dv_aphi, dv_vx, dv_vy );
 
     dim3 rblocks( (nx*ny+nthread-1)/nthread );
-    cureal cfl_vx, cfl_vy, cfl_rho0g, cfl_rho0prime;
+    cureal cfl_vx, cfl_vy, cfl_grho0, cfl_rho0prime;
 
     add_v0 <<< rblocks, threads >>> ( dv_vx, dv_rtmp );
     cfl_vx = maxvalue_search( dv_rtmp );
@@ -387,11 +387,11 @@ static void check_cfl
         printf( "istep = %d, time = %g, cfl_vy = %g, delt = %g\n"
                 , istep, time, cfl_vy, delt );
     }
-    cfl_rho0g = rho0 / g;
-    while( (cfl_rho0g * delt / dx) > cfl_num ){
+    cfl_grho0g = g / rho0;
+    while( (cfl_grho0 * delt / dx) > cfl_num ){
         delt /= 2.0;
-        printf( "istep = %d, time = %g, cfl_(rho0/g) = %g, delt = %g\n"
-                , istep, time, cfl_rho0g, delt );
+        printf( "istep = %d, time = %g, cfl_(g/rho0) = %g, delt = %g\n"
+                , istep, time, cfl_grho0, delt );
     }
     cfl_rho0prime = rho0_prime;
     while( (cfl_rho0prime * delt / dx) > cfl_num ){
