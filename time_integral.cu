@@ -387,7 +387,7 @@ static void check_cfl
         printf( "istep = %d, time = %g, cfl_vy = %g, delt = %g\n"
                 , istep, time, cfl_vy, delt );
     }
-    cfl_grho0g = g / rho0;
+    cfl_grho0 = g / rho0;
     while( (cfl_grho0 * delt / dx) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_(g/rho0) = %g, delt = %g\n"
