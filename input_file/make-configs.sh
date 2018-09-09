@@ -15,7 +15,7 @@ for INITIAL_RHO in $INITIAL_RHO; do
     echo "nx = $NX" >> $FILE
     echo "ny = $NY" >> $FILE
     echo "" >> $FILE
-    echo "time step = 1e-1" >> $FILE
+    echo "time step = 1e-3" >> $FILE
     echo "time max = 30" >> $FILE
     echo "" >> $FILE
     echo "cuda thread num = 1024" >> $FILE
