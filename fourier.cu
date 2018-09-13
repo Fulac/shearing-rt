@@ -265,8 +265,8 @@ void poisson_bracket
     ,       cureal  *out
 ){
     dim3 block( nthread );
-    dim3 cgrid( (nkx*nky+nthread-1)/nthread );
     dim3 rgrid( (nx*ny+nthread-1)/ nthread );
+    dim3 cgrid( (nkx*nky+nthread-1)/nthread );
 
     ddx <<< cgrid, block >>> ( in, dv_ctmp );
     ktox( dv_ctmp, out );

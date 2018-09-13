@@ -55,12 +55,6 @@ void initialize
     ( void
 );
 
-__global__ static void replace_zero
-    ( cucmplx *dv_rho
-    , int      ikx
-    , int      iky
-);
-
 static void init_dis
     ( void
 );
@@ -254,29 +248,11 @@ void initialize
     cudaMemcpy( dv_rho,  rho,  sizeof(cureal)*nx*ny, cudaMemcpyHostToDevice );
     xtok( dv_omgz, dv_aomg0 );
     xtok( dv_rho,  dv_arho0 );
-    /* replace_zero <<< cgrid, block >>> ( dv_arho0, 1, 5 ); */
 
     if( noise_flag ) init_dis();
 
     neg_lapinv <<< cgrid, block >>> ( dv_aomg0, dv_aphi );
     get_vector( dv_aphi, dv_vx, dv_vy );
-}
-
-__global__ static void replace_zero
-    ( cucmplx *dv_rho
-    , int      ikx
-    , int      iky
-){
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int xid = idx/ct_nky, yid = idx%ct_nky;
-
-    if( idx < ct_nkx*ct_nky ){
-        if( xid == ikx && yid == iky ) dv_rho[idx].y = 0;
-        else{ 
-            dv_rho[idx].x = 0;
-            dv_rho[idx].y = 0;
-        }
-    }
 }
 
 static void init_dis
