@@ -15,7 +15,7 @@ cureal nu, kappa, sigma, rho0, rho0_prime, g, rho_eps1, rho_eps2;
 __constant__ cureal ct_nu, ct_sigma, ct_rho0, ct_rho0_prime, ct_g, ct_kappa, ct_rho_eps2;
 cureal dx, dy;
 
-cureal *xx, *yy, *omgz, *phi, *rho;
+cureal *xx, *yy, *omgz, *phi, *rho, *vx, *vy;
 cureal *dv_xx, *dv_yy, *dv_omgz, *dv_phi, *dv_rho, *dv_vx, *dv_vy;
 __device__ cureal *gb_xx, *gb_yy;
 cucmplx *dv_aomg0, *dv_aomg1, *dv_aomg2;
@@ -99,6 +99,8 @@ static void allocate_CPU
     omgz = new cureal [nn];
     phi = new cureal [nn];
     rho = new cureal [nn];
+    vx = new cureal [nn];
+    vy = new cureal [nn];
 }
 
 static void deallocate_CPU
@@ -109,6 +111,8 @@ static void deallocate_CPU
     delete[] omgz;
     delete[] phi;
     delete[] rho;
+    delete[] vx;
+    delete[] vy;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

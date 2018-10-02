@@ -12,8 +12,6 @@
 #include "fields.h"
 #include "file_access.h"
 
-#define EPS 1e-4
-
 /* ---------------------------------------------------------------------------------------------- */
 /*  Global Variables Definition                                                                   */
 /* ---------------------------------------------------------------------------------------------- */
@@ -28,6 +26,8 @@ namespace{
 
     cureal  *dv_rtmp;
     cucmplx *dv_ctmp1, *dv_ctmp2, *dv_ctmp3;
+
+    cureal *dv_ddx, *dv_ddy;
 }
 
 // プログラム全体で使用する変数を定義
@@ -107,6 +107,14 @@ void poisson_bracket_shear
     ,       cureal  *out
 );
 
+__global__ static void calc_poisson_bracket
+    ( const cureal *dv_vx
+    , const cureal *dv_vy
+    , const cureal *dv_ddx
+    , const cureal *dv_ddy
+    ,       cureal *out
+);
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 __global__ void seq_ktox_shear
@@ -171,6 +179,9 @@ void init_shear
     cudaMalloc( (void**)&dv_ctmp1, sizeof(cucmplx)*nkx*nky );
     cudaMalloc( (void**)&dv_ctmp2, sizeof(cucmplx)*nkx*ny );
     cudaMalloc( (void**)&dv_ctmp3, sizeof(cucmplx)*nx*ny );
+
+    cudaMalloc( (void**)&dv_ddx, sizeof(cureal)*nx*ny );
+    cudaMalloc( (void**)&dv_ddy, sizeof(cureal)*nx*ny );
 }
 
 void finish_shear
@@ -190,6 +201,9 @@ void finish_shear
     cudaFree( dv_ctmp1 );
     cudaFree( dv_ctmp2 );
     cudaFree( dv_ctmp3 );
+
+    cudaFree( dv_ddx );
+    cudaFree( dv_ddy );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -389,14 +403,34 @@ void poisson_bracket_shear
     dim3 cgrid( (nkx*nky+nthread-1)/nthread );
 
     ddx <<< cgrid, block >>> ( in, dv_ctmp1 );
-    ktox( dv_ctmp1, out );
-    mult_real_field <<< rgrid, block >>> ( dv_vectx, out );
+    ktox( dv_ctmp1, dv_ddx );
 
     ddy_shear <<< cgrid, block >>> ( in, dv_ctmp1 );
-    ktox( dv_ctmp1, dv_rtmp );
-    mult_real_field <<< rgrid, block >>> ( dv_vecty, dv_rtmp );
+    ktox( dv_ctmp1, dv_ddy );
 
-    add_real_field <<< rgrid, block >>> ( dv_rtmp, out );
+    calc_poisson_bracket <<< rgrid, block >>> ( dv_vx, dv_vy
+                                              , dv_ddx, dv_ddy, out );
+}
+
+__global__ static void calc_poisson_bracket
+    ( const cureal *dv_vx
+    , const cureal *dv_vy
+    , const cureal *dv_ddx
+    , const cureal *dv_ddy
+    ,       cureal *out
+){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if( tid < ct_nx*ct_ny ){
+        out[tid] = dv_vx[tid] * dv_ddx[tid] + dv_vy[tid] * dv_ddy[tid];
+
+
+        /* out[tid] = dv_ddx[tid] + dv_ddy[tid]; // 一致する */
+        /* out[tid] = 1.1 * dv_ddx[tid] + 1.1 * dv_ddy[tid]; // 一致する */
+        /* out[tid] = dv_vx[tid] * 1.1 + dv_vy[tid] * 1.1; // 一致する */
+        /* out[tid] = dv_vx[tid] * dv_ddx[tid]; // 一致しない */
+        /* out[tid] = dv_vx[tid] * dv_vx[tid] - dv_vy[tid] * dv_vy[tid]; // 一致しない */
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

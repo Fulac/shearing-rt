@@ -45,4 +45,9 @@ void k_data_aft
     , const int    istep
 );
 
+void output_pbk
+    ( const cureal  time
+    , const cureal *in
+);
+
 #endif

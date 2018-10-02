@@ -283,8 +283,14 @@ __global__ void mult_real_field
     ,       cureal *fb 
 ){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    cureal tmp_data;
 
-    if( tid < ct_nx*ct_ny ) fb[tid] = fa[tid] * fb[tid];
+    if( tid < ct_nx*ct_ny ){
+        tmp_data = fb[tid];
+        __syncthreads();
+
+        fb[tid] = fa[tid] * tmp_data;
+    }
 }
 
 __global__ void add_real_field

@@ -104,9 +104,9 @@ void init_fft
     cudaMemcpyToSymbol( ct_nkxpad, &nkxpad, sizeof(int) );
     cudaMemcpyToSymbol( ct_ncy,    &ncy,    sizeof(int) );
 
-    cudaMalloc( (void**)&dv_rtmp,  sizeof(cureal)*nx*ny   );
-    cudaMalloc( (void**)&dv_ctmp1, sizeof(cucmplx)*nx*ncy );
-    cudaMalloc( (void**)&dv_ctmp2, sizeof(cucmplx)*nx*ny  );
+    cudaMalloc( (void**)&dv_rtmp,  sizeof(cureal)  * nx * ny  );
+    cudaMalloc( (void**)&dv_ctmp1, sizeof(cucmplx) * nx * ncy );
+    cudaMalloc( (void**)&dv_ctmp2, sizeof(cucmplx) * nx * ny  );
 
     #ifdef DBLE
         cufftPlan2d( &pr2c, nx, ny, CUFFT_D2Z );
@@ -140,10 +140,13 @@ void xtok
     dim3 block( nthread );
     dim3 cgrid( (nkx*nky+nthread-1)/nthread );
 
+    cudaMemset( dv_ctmp1, 0, sizeof(cucmplx) * nx * ncy );
+
+    cudaMemcpy( dv_rtmp, in, sizeof(cureal) * nx * ny, cudaMemcpyDeviceToDevice );
     #ifdef DBLE
-        cufftExecD2Z( pr2c, in, dv_ctmp1 );
+        cufftExecD2Z( pr2c, dv_rtmp, dv_ctmp1 );
     #else
-        cufftExecR2C( pr2c, in, dv_ctmp1 );
+        cufftExecR2C( pr2c, dv_rtmp, dv_ctmp1 );
     #endif
 
     scale_dealias <<< cgrid, block >>> ( dv_ctmp1, out );
@@ -169,7 +172,10 @@ void ktox
     ,       cureal  *out 
 ){
     dim3 block( nthread );
+    dim3 rgrid( (nx*ny+nthread-1)/nthread );
     dim3 rcgrid( (nx*ncy+nthread-1)/nthread );
+
+    cudaMemset( dv_ctmp1, 0, sizeof(cucmplx) * nx * ncy );
 
     pad2d <<< rcgrid, block >>> ( in, dv_ctmp1 );
 

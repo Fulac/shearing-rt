@@ -13,6 +13,7 @@
 #include "fields.h"
 #include "fourier.h"
 #include "shear.h"
+#include "file_access.h"
 
 #define RANDSEED 2000
 
@@ -103,7 +104,8 @@ static void renew_fields
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static void advect_omg
-    ( const int istep
+    ( const int    istep
+    , const cureal time
 );
 
 __global__ static void add_ddxrho
@@ -207,7 +209,7 @@ void init_tint
 
     cudaMalloc( (void**)&dv_rtmp, sizeof(cureal)*nx*ny );
     cudaMalloc( (void**)&dv_ctmp, sizeof(cucmplx)*nkx*nky );
-    cudaMalloc( (void**)&dv_vmax, sizeof(cureal)*nx*ny/2.0 );
+    cudaMalloc( (void**)&dv_vmax, sizeof(cureal)*nx*ny/2 );
     cudaMalloc( (void**)&dv_v0,   sizeof(cureal)*ny );
     ff = new cureal [nx*ny];
 }
@@ -244,6 +246,7 @@ void initialize
             rho[ix*ny+iy]  = rho_eps1 * cos(2*xx[ix] + 10*yy[iy]);
         }
     }
+
     cudaMemcpy( dv_omgz, omgz, sizeof(cureal)*nx*ny, cudaMemcpyHostToDevice );
     cudaMemcpy( dv_rho,  rho,  sizeof(cureal)*nx*ny, cudaMemcpyHostToDevice );
     xtok( dv_omgz, dv_aomg0 );
@@ -271,13 +274,6 @@ static void init_dis
     srand( RANDSEED );
     for( int ikx = 0; ikx < nkx; ikx++ ){
         for( int iky = 0; iky < nky; iky++ ){
-            // 複素共役を保たない
-            /* if( fabs(kx[ikx]) <= 2 && fabs(ky[iky]) <= 10 ){ */
-            /*     fk1[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0) */
-            /*                      / sqrt(2 * 10); */
-            /*     fk2[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0) */
-            /*                      / sqrt(2 * 10); */
-            /* } */
             // 複素共役を保つ
             if( fabs(kx[ikx]) <= 2 && fabs(ky[iky]) != 0 && fabs(ky[iky]) <= 10 ){
                 fk1[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0);
@@ -287,6 +283,16 @@ static void init_dis
                 fk1[ikx*nky+iky] = 0;
                 fk2[ikx*nky+iky] = 0;
             }
+
+            // バグ位置確認用 9/19
+            /* if( fabs(kx[ikx]) <= 40 && fabs(ky[iky]) != 0 && fabs(ky[iky]) <= 84 ){ */
+            /*     fk1[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0); */
+            /*     fk2[ikx*nky+iky] = rho_eps2 * (2 * ((double)rand() / (1.0 + RAND_MAX)) - 1.0); */
+            /* } */
+            /* else{ */
+            /*     fk1[ikx*nky+iky] = 0; */
+            /*     fk2[ikx*nky+iky] = 0; */
+            /* } */
         }
     }
 
@@ -322,7 +328,7 @@ void time_advance
     check_cfl( delt, time, istep );
     renew_fields();
 
-    advect_omg( istep );
+    advect_omg( istep, time );
     dissipate_omg( istep );
 
     advect_rho( istep );
@@ -355,25 +361,25 @@ static void check_cfl
     while( (cfl_vx * delt / dx) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_vx = %g, delt = %g\n"
-                , istep, time, cfl_vx, delt );
+              , istep, time, cfl_vx, delt );
     }
     cfl_vy = maxvalue_search( dv_vy );
     while( (cfl_vy * delt / dy) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_vy = %g, delt = %g\n"
-                , istep, time, cfl_vy, delt );
+              , istep, time, cfl_vy, delt );
     }
     cfl_grho0 = g / rho0;
     while( (cfl_grho0 * delt / dx) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_(g/rho0) = %g, delt = %g\n"
-                , istep, time, cfl_grho0, delt );
+              , istep, time, cfl_grho0, delt );
     }
     cfl_rho0prime = rho0_prime;
     while( (cfl_rho0prime * delt / dx) > cfl_num ){
         delt /= 2.0;
         printf( "istep = %d, time = %g, cfl_rho0_prime = %g, delt = %g\n"
-                , istep, time, cfl_rho0prime, delt );
+              , istep, time, cfl_rho0prime, delt );
     }
 }
 
@@ -480,7 +486,8 @@ static void renew_fields
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static void advect_omg
-    ( const int istep
+    ( const int    istep
+    , const cureal time
 ){
     dim3 block( nthread );
     dim3 rgrid( (nx*ny+nthread-1)/nthread );
@@ -491,6 +498,12 @@ static void advect_omg
     }
     else{
         poisson_bracket_shear( dv_vx, dv_vy, dv_aomg1, dv_rtmp );
+
+        if( write_fields && time == 0 )
+            output_pbk( time, dv_rtmp );
+        else if( write_fields && (time+delt) > next_output_time )
+            output_pbk( time+delt, dv_rtmp );
+
         negative <<< rgrid, block >>> ( dv_rtmp );
         xtok( dv_rtmp, dv_domg0 );
     }
@@ -701,7 +714,7 @@ static void dissipate_omg
             else{
                 bdf2 <<< cgrid, block >>> ( dv_aomg0, nu, delt );
                 break;
-        }
+            }
     }
 }
 

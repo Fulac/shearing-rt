@@ -25,7 +25,13 @@ mkdir -p ky_ensp/phi
 mkdir -p ky_ensp/rho
 mkdir -p ky_ensp/data
 
+mkdir -p velocity/vx
+mkdir -p velocity/vy
+mkdir -p velocity/data
+
 mkdir -p kdata
+
+mkdir -p pbk/data
 
 
 if [[ -e n00000_t00.000000.dat ]]; then
@@ -54,6 +60,15 @@ fi
 if [[ -e after_kdata.txt ]]; then
   rm after_kdata.txt
   mv aft*.dat kdata
+fi
+
+if [[ -e vel_t00.000000.dat ]]; then
+  mv vel*.dat velocity/data
+fi
+
+if [[ -e pbk.txt ]]; then
+  mv pbk.txt pbk/data
+  mv pbk*.dat pbk/data
 fi
 
 
@@ -125,5 +140,24 @@ if [[ -e ky_ensp.txt ]]; then
 
   gnuplot ../../gp_files/plot_ky_ensp_rho.gp
   mv *.eps ../rho
+fi
+cd ../..
+
+cd velocity/data
+if [[ -e vel_t00.000000.dat ]]; then
+  gnuplot ../../gp_files/plot_vx.gp
+  mv *.png ../vx
+
+  gnuplot ../../gp_files/plot_vy.gp
+  mv *.png ../vy
+fi
+cd ../..
+
+cd pbk/data
+if [[ -e pbk.txt ]]; then
+  rm pbk.txt
+
+  gnuplot ../../gp_files/plot_pbk.gp
+  mv *.png ../
 fi
 cd ../..
